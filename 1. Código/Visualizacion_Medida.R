@@ -3,20 +3,65 @@
 ################ Representación bidimensional – Shapley por Órdenes ###########
 ################################################################################
 ################################################################################
+# ============================================================================
+# 1. PREPARACIÓN DE LA TABLA Δ(S) Y FIJACIÓN DE LA INSTANCIA DE ANÁLISIS
+# ============================================================================
+#
+# Objetivo:
+# Seleccionar la tabla de contribuciones Δ(S) obtenida previamente,
+# normalizar su estructura y fijar la instancia sobre la que se
+# realizará posteriormente la representación bidimensional de los
+# valores de Shapley por órdenes.
+#
+# Metodología:
+# - Se parte de una tabla T(i,S) obtenida previamente mediante el
+#   procedimiento de cálculo de contribuciones.
+# - Se verifica que la estructura seleccionada corresponda a una
+#   tabla de datos válida.
+# - Se identifican las columnas asociadas a las contribuciones
+#   correspondientes a las distintas coaliciones S.
+# - Se normaliza la nomenclatura utilizada para representar las
+#   coaliciones con el fin de obtener una representación homogénea.
+# - Las expresiones escritas mediante la forma T_S_* se transforman
+#   automáticamente a la forma T(S).
+# - La coalición vacía se representa mediante T().
+# - Una vez normalizada la tabla, se selecciona una instancia
+#   específica del conjunto de datos.
+# - La fila correspondiente a dicha instancia se extrae y se utilizará
+#   como referencia en todos los cálculos posteriores.
+#
+# Interpretación:
+# - La tabla normalizada constituye la representación de las
+#   contribuciones Δ(S) asociadas a todas las coaliciones
+#   consideradas.
+# - La instancia seleccionada representa la observación concreta para
+#   la que se calcularán posteriormente los efectos de las distintas
+#   órdenes de interacción.
+# - Este paso no modifica los valores de las contribuciones y tiene
+#   únicamente una función preparatoria.
+#
+# Validación:
+# - Se verifica que el objeto seleccionado sea una tabla de datos.
+# - Se comprueba la existencia de columnas compatibles con la
+#   representación T(S).
+# - Se verifica que la instancia seleccionada exista en la tabla.
+# - Se garantiza que la extracción de la instancia produzca una única
+#   observación.
+#
+# Resultado:
+# - Tabla Δ(S) normalizada.
+# - Identificación de las coaliciones disponibles.
+# - Instancia de análisis seleccionada.
+# - Vector de contribuciones Δ(S) asociado a dicha instancia.
+#
+# ============================================================================
 
-###############################################################################
-# PASO 0. TABLA BASE (SELECCIONABLE)
-###############################################################################
 
-tabla_T_base <- M4_Delta_glm_yb_stream
+tabla_T_base <- M4_Delta_glm_yb_stream # Elegimos el archivo 
 
 stopifnot(is.data.frame(tabla_T_base))
 
-###############################################################################
-# PASO 1. NORMALIZADOR DE TABLAS Δ(S)
-# - Acepta T(...) y T_S_*
-# - Convierte TODO a T(...)
-###############################################################################
+
 normalizar_tabla_delta <- function(tabla) {
   
   stopifnot(is.data.frame(tabla))
@@ -49,9 +94,7 @@ normalizar_tabla_delta <- function(tabla) {
   )
 }
 
-###############################################################################
-# PASO 2. FIJAR INSTANCIA
-###############################################################################
+
 row_instancia_ordenes <- 1    # elijo la instancia 
 
 delta_info <- normalizar_tabla_delta(tabla_T_base)
@@ -60,39 +103,78 @@ tabla_T <- delta_info$tabla_delta
 tabla_T_instancia <- tabla_T[row_instancia_ordenes, , drop = FALSE]
 stopifnot(nrow(tabla_T_instancia) == 1)
 
-###############################################################################
-# PASO 3. RECONSTRUIR COALICIONES (CANÓNICAS)
+# ============================================================================
+# 2. CÁLCULO Y REPRESENTACIÓN DEL VALOR DE SHAPLEY POR ÓRDENES
+# ============================================================================
 #
-# Este bloque permite reconstruir coaliciones a partir de nombres en formato
-# texto del tipo "T(A_B_C)", que suelen aparecer en matrices de coaliciones,
-# modelos cooperativos o cálculos tipo Shapley.
+# Objetivo:
+# Calcular la descomposición del valor de Shapley por órdenes para cada
+# variable presente en la tabla Δ(S) asociada a la instancia previamente
+# seleccionada y representar gráficamente los resultados obtenidos.
 #
-# PROBLEMA:
-# - Las coaliciones vienen codificadas como texto
-# - El orden de los elementos puede variar ("A_B" vs "B_A")
-# - Existen coaliciones vacías ("T()")
-# - No se pueden usar directamente para comparar o calcular
+# Metodología:
+# - Se parte de la tabla Δ(S) correspondiente a una única instancia.
+# - Se identifican todas las coaliciones disponibles a partir de las
+#   columnas de la forma T(S).
+# - Cada coalición se reconstruye explícitamente como un conjunto de
+#   variables.
+# - Las coaliciones reconstruidas se transforman a una representación
+#   canónica mediante la ordenación de sus elementos.
+# - La coalición vacía se representa mediante el conjunto vacío.
+# - A partir de las coaliciones reconstruidas se identifica el conjunto
+#   completo de variables participantes en el modelo.
+# - Para cada variable i se consideran todas las coaliciones que la
+#   contienen.
+# - En cada caso se calcula la contribución marginal:
 #
-# SOLUCIÓN:
-# 1) Convertir el texto en vectores de R (estructura usable)
-#    "T(A_B_C)" -> c("A","B","C")
+#       Δ(S ∪ {i}) − Δ(S)
 #
-# 2) Canonizar las coaliciones (ordenarlas)
-#    c("B","A") -> c("A","B")
-#    Esto evita duplicados lógicos y permite comparar correctamente
+#   donde S representa la coalición obtenida al eliminar la variable i
+#   de la coalición considerada.
 #
-# 3) Tratar explícitamente el caso vacío
-#    "T()" -> character(0)
+# - Las contribuciones marginales obtenidas se agrupan según el tamaño
+#   de la coalición previa:
 #
-# 4) Mantener los nombres originales para trazabilidad
+#       j = |S|
 #
-# DETALLES TÉCNICOS CLAVE:
-# - gsub("^T\\(|\\)$", "", x) elimina "T(" y ")"
-# - strsplit(..., "_") separa los elementos
-# - [[1]] extrae el vector de la lista resultante
-# - sort() impone una representación única (canónica)
-###############################################################################
-
+# - Para cada orden j se calcula la media de las contribuciones
+#   marginales asociadas a dicho tamaño de coalición.
+# - El resultado obtenido constituye la representación del valor de
+#   Shapley descompuesto por órdenes para la variable considerada.
+# - El procedimiento se repite para todas las variables presentes en la
+#   tabla Δ(S).
+# - Finalmente se genera una representación gráfica de los valores
+#   obtenidos para cada orden de interacción.
+#
+# Interpretación:
+# - El orden j representa el número de variables presentes en la
+#   coalición antes de incorporar la variable analizada.
+# - El valor asociado a cada orden cuantifica la contribución marginal
+#   media de la variable cuando interactúa con coaliciones de dicho
+#   tamaño.
+# - Esta representación permite analizar cómo evoluciona la influencia
+#   de una variable a medida que aumenta la complejidad de las
+#   interacciones consideradas.
+# - A diferencia del valor de Shapley agregado, la descomposición por
+#   órdenes permite identificar la estructura de interacción asociada a
+#   cada variable.
+#
+# Validación:
+# - Se verifica la correcta reconstrucción de todas las coaliciones.
+# - Se comprueba la presencia de la variable analizada en las
+#   coaliciones utilizadas para el cálculo.
+# - Se verifica la consistencia de las contribuciones marginales
+#   calculadas para cada orden.
+# - Se garantiza la obtención de una representación por órdenes para
+#   todas las variables presentes en la tabla Δ(S).
+#
+# Resultado:
+# - Conjunto de tablas de Shapley por órdenes para todas las variables.
+# - Contribuciones marginales medias asociadas a cada orden de
+#   interacción.
+# - Representaciones gráficas individuales para cada variable.
+#
+# ============================================================================
 canonizar_coalicion <- function(S) sort(as.character(S))
 
 reconstruir_combos_desde_T <- function(T_cols) {
@@ -106,9 +188,7 @@ reconstruir_combos_desde_T <- function(T_cols) {
   combos
 }
 
-###############################################################################
-# PASO 4. SHAPLEY POR ÓRDENES 
-###############################################################################
+
 calcular_shapley_por_ordenes <- function(tabla_T_instancia, var_obj, T0 = 0) {
   
   T_cols <- grep("^T\\(", names(tabla_T_instancia), value = TRUE)
@@ -155,52 +235,6 @@ calcular_shapley_por_ordenes <- function(tabla_T_instancia, var_obj, T0 = 0) {
   )
 }
 
-###############################################################################
-# PASO 4. SHAPLEY POR ÓRDENES
-#
-# Este bloque calcula el valor de Shapley de una variable objetivo descomponido
-# por órdenes (tamaño de la coalición previa), a partir de una tabla T(S).
-#
-# CONTEXTO:
-# - Se dispone de valores T(S) asociados a cada coalición S
-# - Cada coalición viene en formato "T(A_B_C)"
-# - Se quiere medir la contribución marginal de una variable (var_obj)
-#
-# PROBLEMA:
-# - El valor de Shapley estándar agrega todas las contribuciones
-# - No permite ver cómo influye el tamaño de la coalición
-#
-# SOLUCIÓN:
-# - Se descompone el Shapley en función del número de elementos previos (orden j)
-# - Para cada coalición S que contiene a var_obj:
-#     Se calcula la contribución marginal:
-#
-#         T(S ∪ {i}) - T(S)
-#
-#   donde:
-#     i = variable objetivo
-#     S = coalición sin la variable
-#
-# - Luego se agrupan las contribuciones según:
-#
-#     j = tamaño de S
-#
-# - Para cada j se calcula la media de contribuciones:
-#
-#     Sh(j) = media de contribuciones marginales con |S| = j
-#
-# RESULTADO:
-# - Un data.frame con:
-#     j  → tamaño de la coalición previa
-#     Sh → contribución media en ese orden
-#
-# DETALLES TÉCNICOS CLAVE:
-# - Se filtran solo coaliciones donde aparece var_obj
-# - Se reconstruyen coaliciones con reconstruir_combos_desde_T()
-# - Se usa una clave tipo "A|B|C" para localizar subconjuntos rápidamente
-# - Caso especial j=0 → se usa T0 (valor base)
-# - Se calcula la media por cada orden
-###############################################################################
 
 library(ggplot2)
 
@@ -259,59 +293,7 @@ plot_sh_por_ordenes <- function(data, var_id, var_nombre, fila) {
       plot.title = element_text(face = "bold")
     )
 }
-###############################################################################
-# PASO 6. BUCLE PARA TODAS LAS VARIABLES
-#
-# Este bloque automatiza el cálculo del Shapley por órdenes para todas las
-# variables presentes en T(S), evitando tener que hacerlo manualmente una a una.
-#
-# CONTEXTO:
-# - Se dispone de una tabla con columnas tipo "T(A_B_C)"
-# - Ya existe una función que calcula Shapley por órdenes para una variable
-# - Se quiere aplicar ese cálculo a todas las variables automáticamente
-#
-# PROBLEMA:
-# - Las variables no están explícitas → están dentro de los nombres T(...)
-# - No sabemos a priori cuáles son ni cuántas hay
-# - Hay que:
-#     1) extraerlas
-#     2) iterar sobre ellas
-#     3) guardar resultados
-#     4) generar visualizaciones
-#
-# SOLUCIÓN:
-# 
-# 1) EXTRAER VARIABLES:
-#    - Se leen todas las columnas T(...)
-#    - Se reconstruyen las coaliciones internamente
-#    - Se extraen todos los elementos únicos
-#
-# 2) CREAR IDENTIFICADOR NUMÉRICO:
-#    - Se asigna un ID (1,2,3,...) a cada variable
-#    - Útil para gráficos o reporting
-#
-# 3) ITERAR SOBRE VARIABLES:
-#    Para cada variable:
-#       - Se calcula su Shapley por órdenes
-#       - Se guarda en una lista de tablas
-#       - Se genera su gráfico
-#
-# 4) ALMACENAR RESULTADOS:
-#    - lista_tablas → resultados numéricos
-#    - lista_plots  → visualizaciones
-#
-# RESULTADO:
-# - Un conjunto completo de Shapley descompuesto por variable
-# - Todo estructurado y reutilizable
-#
-# DETALLES TÉCNICOS CLAVE:
-# - grep("^T\\(", ...) identifica columnas de coaliciones
-# - gsub limpia el formato "T(...)"
-# - strsplit separa elementos
-# - unique + unlist obtiene variables únicas
-# - seq_along crea IDs consistentes
-# - listas permiten almacenar resultados dinámicamente
-###############################################################################
+
 
 # Extraer variables automáticamente
 T_cols <- grep("^T\\(", names(tabla_T_instancia), value = TRUE)
@@ -351,11 +333,6 @@ for (v in vars) {
 }
 
 
-##################################################################################
-##################################################################################
-####################### Por ordenes varias #######################################
-##################################################################################
-##################################################################################
 
 ################################################################################
 ################################################################################
@@ -363,64 +340,109 @@ for (v in vars) {
 ################################################################################
 ################################################################################
 
-# Este bloque generaliza el cálculo de valores de Shapley por órdenes a un
-# conjunto arbitrario de variables A (no sólo variables individuales).
+# ============================================================================
+# 3. GENERALIZACIÓN DEL VALOR DE SHAPLEY POR ÓRDENES A SUBCONJUNTOS DE
+#    VARIABLES
+# ============================================================================
 #
-# CONTEXTO:
-# - Se trabaja con valores T(S), donde S es una coalición de variables
-# - Cada T(S) representa un valor agregado asociado a la combinación S
-# - Las coaliciones están codificadas como "T(A_B_C)"
+# Objetivo:
+# Extender la representación del valor de Shapley por órdenes desde
+# variables individuales hasta subconjuntos arbitrarios de variables,
+# permitiendo analizar contribuciones conjuntas e interacciones de
+# cualquier tamaño.
 #
-# OBJETIVO:
-# - Calcular la contribución marginal media de un conjunto A de variables
-#   condicionada al tamaño de la coalición previa S
+# Motivación:
+# - El procedimiento definido previamente calcula el valor de Shapley
+#   por órdenes para una única variable.
+# - Sin embargo, en muchos problemas resulta de interés estudiar la
+#   contribución conjunta de varias variables consideradas de forma
+#   simultánea.
+# - Para ello se reemplaza la variable individual por un subconjunto
+#   arbitrario A de variables.
 #
-# DEFINICIÓN FORMAL:
-#   Sh_A^j = E[ T(S ∪ A) − T(S) | |S| = j ]
+# Definición:
+#
+#     Sh_A^j = E[ Δ(S ∪ A) − Δ(S) : |S| = j ]
 #
 # donde:
-# - A: conjunto de variables objetivo (vector de nombres)
-# - S: subconjunto que NO contiene elementos de A
-# - j: tamaño de S
 #
-# INTERPRETACIÓN:
-# - Para cada orden j:
-#     Se evalúa cuánto aporta añadir A a todas las coaliciones S de tamaño j
-# - Luego se promedia esa contribución marginal
+# - A representa el subconjunto de variables analizado.
+# - S representa una coalición que no contiene variables pertenecientes
+#   a A.
+# - j representa el tamaño de la coalición previa S.
+# - Δ(S) representa la contribución asociada a la coalición S.
 #
-# DIFERENCIA CLAVE frente al caso univariante:
-# - Aquí A puede tener varias variables
-# - Se excluyen todas las coaliciones S que ya contengan alguna variable de A
+# Caso particular:
 #
-# LÓGICA DEL ALGORITMO:
-# 1) Extraer columnas T(S) y sus valores
-# 2) Reconstruir coaliciones en forma canónica (ordenadas)
-# 3) Crear un índice eficiente S → posición
-# 4) Identificar el conjunto total de variables
-# 5) Validar que A esté contenido en el universo
-# 6) Recorrer todas las coaliciones S:
-#    - ignorar S si intersecta con A
-#    - construir S ∪ A
-#    - calcular contribución marginal T(SA) − T(S)
-#    - agrupar por tamaño j = |S|
-# 7) Calcular la media por cada orden j
+# - Cuando el subconjunto A contiene una única variable:
 #
-# CASOS IMPORTANTES:
-# - S = ∅ → se usa T0 (valor base)
-# - Si falta alguna coalición S ∪ A → se ignora
-# - Puede haber órdenes sin observaciones → NA
+#       A = {i}
 #
-# RESULTADO:
-# - data.frame con:
-#     j  → tamaño del subconjunto previo
-#     Sh → contribución media del conjunto A en ese orden
+#   se recupera exactamente la formulación del valor de Shapley por
+#   órdenes definida para variables individuales.
 #
-# UTILIDAD:
-# - Permite analizar interacciones entre variables
-# - Identifica efectos marginales condicionados al contexto
-# - Base para análisis avanzados de importancia de variables
-################################################################################
-
+# Metodología:
+# - Se parte de la tabla Δ(S) correspondiente a una instancia
+#   previamente seleccionada.
+# - Se reconstruyen las coaliciones disponibles a partir de su
+#   representación simbólica.
+# - Se identifica el conjunto completo de variables presentes en el
+#   problema.
+# - A partir de dichas variables se generan todos los subconjuntos no
+#   vacíos posibles.
+# - Cada subconjunto generado constituye un candidato A para el
+#   análisis.
+# - Para cada subconjunto A se consideran todas las coaliciones S que
+#   no contienen ninguna de las variables pertenecientes a A.
+# - Para cada coalición válida se calcula la contribución marginal:
+#
+#       Δ(S ∪ A) − Δ(S)
+#
+# - Las contribuciones marginales se agrupan según el tamaño de la
+#   coalición previa:
+#
+#       j = |S|
+#
+# - Para cada orden j se calcula la media de las contribuciones
+#   marginales observadas.
+# - El procedimiento se repite para todos los subconjuntos A
+#   considerados.
+# - Finalmente se genera una representación gráfica para cada
+#   subconjunto analizado.
+#
+# Interpretación:
+# - El valor asociado a cada orden j cuantifica la contribución
+#   conjunta media del subconjunto A cuando se incorpora a coaliciones
+#   de tamaño j.
+# - La metodología permite estudiar efectos de interacción entre
+#   grupos de variables manteniendo la interpretación por órdenes
+#   utilizada en el caso univariante.
+# - Las diferencias observadas entre órdenes reflejan cómo varía la
+#   influencia conjunta del subconjunto analizado en función de la
+#   información previamente disponible.
+# - El caso univariante aparece como una situación particular de esta
+#   formulación general.
+#
+# Validación:
+# - Se verifica la correcta reconstrucción de las coaliciones.
+# - Se comprueba que las variables pertenecientes al subconjunto A
+#   estén presentes en la tabla Δ(S).
+# - Se excluyen automáticamente las coaliciones que contienen
+#   variables de A.
+# - Se verifica la existencia de las coaliciones necesarias para el
+#   cálculo de las contribuciones marginales.
+# - Se garantiza la obtención de resultados para todos los
+#   subconjuntos considerados.
+#
+# Resultado:
+# - Valores Sh_A^j para todos los subconjuntos analizados.
+# - Tablas de contribuciones conjuntas por órdenes.
+# - Representaciones gráficas de los distintos subconjuntos de
+#   variables.
+# - Caracterización de interacciones de cualquier nivel de
+#   complejidad presente en el problema.
+#
+# ============================================================================
 calcular_shapley_ordenes_A <- function(tabla_T_instancia, A, T0 = 0) {
   
   # 1. Columnas T(S)
@@ -485,62 +507,6 @@ calcular_shapley_ordenes_A <- function(tabla_T_instancia, A, T0 = 0) {
   )
 }
 
-###############################################################################
-# PASO 2. MAPEO ÚNICO: NOMBRE DE VARIABLE -> ID NUMÉRICO
-#
-# Este bloque tiene como objetivo identificar automáticamente todas las
-# variables presentes en las coaliciones T(S) y asignarles un identificador
-# numérico único.
-#
-# CONTEXTO:
-# - Las variables no están explícitas en columnas separadas
-# - Están codificadas dentro de nombres tipo "T(A_B_C)"
-# - Cada coalición contiene una combinación de variables
-#
-# PROBLEMA:
-# - No existe una lista explícita de variables
-# - No hay identificadores numéricos disponibles (útiles para gráficos o modelos)
-# - Extraerlas manualmente sería costoso y propenso a errores
-#
-# SOLUCIÓN:
-#
-# 1) EXTRAER TODAS LAS COLUMNAS T(S):
-#    - Se identifican mediante un patrón "T(...)"
-#
-# 2) RECONSTRUIR COALICIONES:
-#    - Se elimina el formato "T(...)"
-#    - Se separan las variables internas por "_"
-#    - Se obtiene una lista de todas las combinaciones
-#
-# 3) OBTENER VARIABLES ÚNICAS:
-#    - Se unen todas las coaliciones
-#    - Se eliminan duplicados
-#    - Se ordenan alfabéticamente para consistencia
-#
-# 4) GENERAR IDS NUMÉRICOS:
-#    - Se asigna un número a cada variable: 1, 2, 3, ...
-#    - Se crea un vector con nombres para acceder fácilmente
-#
-# RESULTADO:
-# - Un vector tipo:
-#     Age -> 1
-#     Rac -> 2
-#     Cho -> 3
-#
-# USOS:
-# - Etiquetar gráficos
-# - Construir matrices
-# - Integrar con modelos numéricos
-#
-# DETALLES TÉCNICOS CLAVE:
-# - grep("^T\\(", ...) filtra columnas de coaliciones
-# - gsub elimina el wrapper "T(...)"
-# - strsplit separa variables dentro de la coalición
-# - unlist aplana la lista de coaliciones
-# - unique elimina duplicados
-# - sort garantiza orden consistente
-# - names(var_ids) permite acceso directo: var_ids["Age"]
-###############################################################################
 
 T_cols <- grep("^T\\(", names(tabla_T_instancia), value = TRUE)
 
@@ -556,63 +522,6 @@ var_ids <- seq_along(vars)
 names(var_ids) <- vars
 # var_ids["Age"] -> 1
 
-###############################################################################
-# PASO 3. FUNCIÓN SEGURA PARA CONSTRUIR ETIQUETAS plotmath (SOLO IDs)
-#
-# Este bloque construye etiquetas dinámicas compatibles con plotmath (usado en
-# gráficos de R, especialmente con ggplot2) para representar valores de Shapley
-# por órdenes cuando se trabaja con identificadores numéricos en lugar de nombres.
-#
-# CONTEXTO:
-# - En visualizaciones avanzadas, las expresiones matemáticas deben generarse
-#   como texto interpretable por plotmath
-# - Se quiere representar expresiones tipo:
-#
-#     Sh^{j}({i}) · (Δ)
-#     Sh^{j}({i,j}) · (Δ)
-#
-# - Pero usando IDs numéricos en lugar de nombres de variables
-#
-# PROBLEMA:
-# - plotmath tiene reglas estrictas de sintaxis
-# - Cuando hay varios elementos, no se pueden escribir directamente (ej: "1,2")
-# - Es necesario usar list() para representar conjuntos múltiples
-# - Si no se respeta esta sintaxis, la etiqueta falla o no se renderiza
-#
-# SOLUCIÓN:
-# - Construir el interior de la etiqueta de forma condicional:
-#
-#     Caso 1 elemento:
-#         1  → correcto directamente
-#
-#     Caso múltiples elementos:
-#         list(1,2) → requerido por plotmath
-#
-# - Envolver el resultado en una expresión completa:
-#
-#     Sh[group('{', ..., '}')]^j * group('(', list(Delta), ')')
-#
-# INTERPRETACIÓN:
-# - group('{', ..., '}') representa el conjunto A
-# - superíndice j indica el orden
-# - (Delta) representa el incremento marginal
-#
-# RESULTADO:
-# - Devuelve un string listo para ser usado en:
-#     labs(title = ...)
-#     annotate()
-#     ggplot + parse = TRUE
-#
-# EJEMPLOS:
-# - build_label_shapley_ids(1)
-#     → Sh^{j}({1}) · (Δ)
-#
-# - build_label_shapley_ids(c(1,2))
-#     → Sh^{j}({1,2}) · (Δ)
-#
-# DETALLE CLAVE:
-# - El uso de list() en múltiples elementos es obligatorio en plotmath
-###############################################################################
 
 build_label_shapley_ids <- function(A_ids) {
   
@@ -629,56 +538,7 @@ build_label_shapley_ids <- function(A_ids) {
   )
 }
 
-###############################################################################
-# FUNCIÓN DE GRÁFICA – TÍTULO CON NOMBRE + IDs
-#
-# Este bloque genera una visualización del Shapley por órdenes para un conjunto
-# de variables A, combinando correctamente dos niveles de información:
-#
-# 1) REPRESENTACIÓN MATEMÁTICA (plotmath):
-#    - Se utiliza una etiqueta construida dinámicamente
-#    - Muestra únicamente los IDs numéricos del conjunto A
-#    - Formato: Sh^{j}({IDs}) · (Δ)
-#    - Es importante usar IDs (y no nombres) porque plotmath requiere sintaxis
-#      estricta y controlada para renderizar correctamente expresiones
-#
-# 2) TÍTULO DEL GRÁFICO (HUMANO):
-#    - Incluye los nombres originales de las variables
-#    - Añade los IDs entre corchetes para trazabilidad
-#    - Ejemplo: "Age_Race [1,2]"
-#
-# PROBLEMA QUE RESUELVE:
-# - Diferenciar claramente entre:
-#     * representación matemática (precisa, técnica)
-#     * representación descriptiva (legible, interpretativa)
-#
-# - Evitar errores de renderizado en plotmath al usar strings complejos
-#
-# - Mantener coherencia entre el cálculo interno (IDs) y la interpretación
-#
-# LÓGICA DEL FLUJO:
-# - Se reciben:
-#     data → tabla con columnas (j, Sh)
-#     A    → nombres de variables (ej: c("Age","Cho"))
-#     fila → identificador de instancia analizada
-#
-# - Se convierten nombres → IDs usando var_ids
-# - Se construye etiqueta matemática con build_label_shapley_ids()
-# - Se construye título combinando nombres e IDs
-# - Se genera gráfico con:
-#     * puntos (geom_point)
-#     * línea (geom_line)
-#     * anotación matemática (annotate + parse=TRUE)
-#
-# RESULTADO:
-# - Gráfico consistente, interpretable y correcto en términos matemáticos
-#
-# DETALLES TÉCNICOS CLAVE:
-# - annotate(..., parse = TRUE) permite interpretar plotmath
-# - max(data$j) ajusta posición dinámica del texto
-# - na.rm = TRUE evita errores si hay NA
-# - var_ids[A] mantiene correspondencia exacta nombre → ID
-###############################################################################
+
 
 plot_sh_por_ordenes_A <- function(data, A, fila) {
   
@@ -754,68 +614,7 @@ plot_sh_por_ordenes_A <- function(data, A, fila) {
     )
 }
 
-###############################################################################
-# PASO 5. GENERAR TODOS LOS SUBCONJUNTOS A (NO VACÍOS)
-#
-# Este bloque genera automáticamente todos los subconjuntos posibles del conjunto
-# de variables disponibles (vars), excluyendo el conjunto vacío.
-#
-# CONTEXTO:
-# - Se dispone de un conjunto de variables (vars), por ejemplo:
-#     vars = c("Age", "Rac", "Cho")
-# - Para análisis de Shapley generalizado, es necesario evaluar no sólo variables
-#   individuales, sino también combinaciones (pares, tríos, etc.)
-#
-# PROBLEMA:
-# - Generar manualmente todas las combinaciones posibles es inviable cuando
-#   crece el número de variables
-# - Se necesita una forma automática, ordenada y completa de generar:
-#
-#     {Age}, {Rac}, {Cho}
-#     {Age, Rac}, {Age, Cho}, {Rac, Cho}
-#     {Age, Rac, Cho}
-#
-# - Pero excluyendo el conjunto vacío {}
-#
-# SOLUCIÓN:
-#
-# 1) Se recorren todos los tamaños posibles de subconjunto:
-#       k = 1, 2, ..., n
-#
-# 2) Para cada tamaño k, se generan todas las combinaciones posibles usando:
-#       combn(vars, k)
-#
-# 3) Se devuelve cada combinación como vector (no como matriz)
-#
-# 4) Se aplana la lista de listas en una única lista final
-#
-# RESULTADO:
-# - lista_A es una lista donde:
-#     cada elemento es un subconjunto A (vector de variables)
-#
-# EJEMPLO:
-# - vars = c("Age","Rac","Cho")
-#
-# - lista_A =
-#     [[1]] "Age"
-#     [[2]] "Rac"
-#     [[3]] "Cho"
-#     [[4]] c("Age","Rac")
-#     [[5]] c("Age","Cho")
-#     [[6]] c("Rac","Cho")
-#     [[7]] c("Age","Rac","Cho")
-#
-# USOS:
-# - Iterar sobre todos los subconjuntos A
-# - Calcular Shapley generalizado
-# - Analizar interacciones de cualquier orden
-#
-# DETALLES TÉCNICOS CLAVE:
-# - seq_along(vars) genera longitudes desde 1 a n
-# - combn(..., simplify = FALSE) devuelve listas (no matrices)
-# - lapply aplica la generación para cada tamaño k
-# - unlist(..., recursive = FALSE) aplana un nivel sin romper vectores internos
-###############################################################################
+
 
 lista_A <- unlist(
   lapply(seq_along(vars),
@@ -823,74 +622,7 @@ lista_A <- unlist(
   recursive = FALSE
 )
 
-###############################################################################
-# PASO 6. BUCLE GLOBAL: CALCULAR Y GRAFICAR TODO (SIN ERRORES)
-#
-# Este bloque ejecuta el pipeline completo del análisis de Shapley por órdenes
-# para TODOS los subconjuntos de variables previamente generados (lista_A).
-#
-# CONTEXTO:
-# - Se dispone de:
-#     * lista_A → todos los subconjuntos no vacíos de variables
-#     * función calcular_shapley_ordenes_A() → calcula Sh_A^j
-#     * función plot_sh_por_ordenes_A() → genera la gráfica
-#
-# OBJETIVO:
-# - Automatizar el cálculo y visualización para cada subconjunto A
-# - Evitar ejecución manual (que sería inviable con muchas combinaciones)
-#
-# PROBLEMA:
-# - El número de subconjuntos crece exponencialmente (2^n - 1)
-# - Se necesita:
-#     * calcular resultados de forma sistemática
-#     * almacenarlos correctamente
-#     * generar gráficos consistentes
-#
-# SOLUCIÓN:
-#
-# 1) INICIALIZACIÓN:
-#    - lista_tablas → almacena resultados numéricos (Sh_A^j)
-#    - lista_plots  → almacena gráficos generados
-#
-# 2) ITERACIÓN SOBRE TODOS LOS SUBCONJUNTOS A:
-#    Para cada A:
-#
-#    a) Se construye un nombre único (clave) usando:
-#         "Age_Rac", "Age_Cho", etc.
-#
-#    b) Se calcula el Shapley por órdenes:
-#         Sh_A^j = E[ T(S ∪ A) − T(S) | |S| = j ]
-#
-#    c) Se guarda la tabla en lista_tablas usando el nombre como clave
-#
-#    d) Se genera el gráfico asociado:
-#         - Usa IDs numéricos internamente
-#         - Usa nombres en el título
-#
-#    e) Se guarda el gráfico en lista_plots
-#
-#    f) Se imprime directamente (visualización inmediata)
-#
-# RESULTADO:
-# - lista_tablas:
-#     Contiene todas las tablas Sh_A^j por subconjunto
-#
-# - lista_plots:
-#     Contiene todos los gráficos generados
-#
-# - Salida visual:
-#     Se muestran todos los gráficos en la consola uno detrás de otro
-#
-# DETALLES TÉCNICOS CLAVE:
-# - paste(A, collapse = "_") crea identificadores únicos
-# - Las listas permiten almacenar estructuras heterogéneas
-# - El bucle for garantiza control total y robustez
-# - print(p) es necesario para forzar la visualización en loops
-#
-# CONSIDERACIÓN IMPORTANTE:
-# - El coste computacional puede ser elevado si el número de variables crece
-# - Número de subconjuntos = 2^n - 1
-###############################################################################
+
 
 lista_tablas <- list()
 lista_plots  <- list()
@@ -925,78 +657,166 @@ for (A in lista_A) {
 ############################## Presencia #######################################
 ################################################################################
 
-###############################################################################
-# SHAPLEY POR PRESENCIA (P → A) POR ÓRDENES
+# ============================================================================
+# 4. VALOR DE SHAPLEY POR ÓRDENES CONDICIONADO POR PRESENCIA
+# ============================================================================
 #
-# Este bloque extiende el cálculo de Shapley por órdenes incorporando una
-# condición de PRESENCIA previa: se evalúa el efecto de añadir A únicamente
-# sobre coaliciones S que YA contienen un conjunto P.
+# Objetivo:
+# Extender la representación del valor de Shapley por órdenes
+# generalizado incorporando condiciones de presencia previas, con el
+# fin de analizar cómo la contribución de un subconjunto de variables A
+# se modifica cuando otro subconjunto de variables P ya forma parte de
+# la coalición considerada.
 #
-# CONTEXTO:
-# - Se dispone de valores T(S) para todas las coaliciones posibles
-# - Se quiere analizar el impacto de A en un contexto condicionado
+# Motivación:
+# - Los procedimientos anteriores permiten estudiar la contribución de
+#   variables individuales o subconjuntos de variables considerando
+#   todas las coaliciones compatibles.
+# - Sin embargo, en numerosos problemas resulta de interés analizar la
+#   influencia de determinadas variables o grupos de variables sobre la
+#   contribución de otras.
+# - Para ello se incorpora una condición adicional de presencia que
+#   obliga a que determinadas variables P se encuentren previamente en
+#   la coalición analizada.
 #
-# OBJETIVO:
-# - Medir el efecto marginal de añadir A dado que ciertas variables P ya están
-#   presentes en la coalición S
+# Definición:
 #
-# DEFINICIÓN FORMAL:
-#   Sh_{P→A}^j =
-#     E[ T(S ∪ A) − T(S)
-#        | |S| = j, P ⊆ S, A ∩ S = ∅ ]
+#     Sh_{P→A}^j =
+#       E[ Δ(S ∪ A) − Δ(S) |
+#          |S| = j,
+#          P ⊆ S,
+#          A ∩ S = ∅ ]
 #
-# INTERPRETACIÓN:
-# - Estamos midiendo cuánto aporta A cuando:
-#     * P ya está dentro del sistema (condición obligatoria)
-#     * A todavía no está presente (evitar doble conteo)
-#     * S tiene tamaño j (análisis por órdenes)
+# donde:
 #
-# DIFERENCIA CLAVE:
-# - No se consideran todas las coaliciones
-# - Solo aquellas que cumplen:
-#       P ⊆ S        (presencia obligatoria)
-#       A ∩ S = ∅    (no solapamiento)
+# - A representa el subconjunto de variables objetivo.
+# - P representa el subconjunto de variables cuya presencia se exige.
+# - S representa una coalición compatible con ambas condiciones.
+# - j representa el tamaño de la coalición previa S.
+# - Δ(S) representa la contribución asociada a la coalición S.
 #
-# INTUICIÓN:
-# - Responde preguntas del tipo:
-#     "¿Cuál es el efecto de añadir A cuando ya está presente P?"
+# Relación con los procedimientos previos:
 #
-# - Esto permite analizar:
-#     * dependencias
-#     * efectos condicionales
-#     * interacciones dirigidas
+# - Cuando no se impone ninguna condición de presencia:
 #
-# LÓGICA DEL ALGORITMO:
-# - Reconstruye todas las coaliciones en formato vector
-# - Filtra solo aquellas S que cumplen:
-#       * contienen P
-#       * no contienen A
-# - Construye S ∪ A
-# - Calcula contribución marginal:
-#       T(S ∪ A) − T(S)
-# - Agrupa por tamaño de S (orden j)
-# - Calcula la media por orden
+#       P = ∅
 #
-# VALIDACIONES:
-# - P debe estar contenido en las variables del problema
-# - A debe estar contenido en las variables del problema
-# - P y A no pueden compartir elementos
+#   se recupera el valor de Shapley por órdenes generalizado definido
+#   anteriormente.
 #
-# CASOS IMPORTANTES:
-# - S = ∅ sólo es válido si P también es vacío
-# - Si falta alguna coalición S ∪ A → se ignora
-# - Si un orden no tiene contribuciones → NA
+# - La presencia introduce una restricción adicional sobre las
+#   coaliciones utilizadas en el cálculo de las contribuciones
+#   marginales.
 #
-# RESULTADO:
-# - data.frame con:
-#     j  → tamaño de S
-#     Sh → contribución media condicionada por presencia
+# Metodología:
+# - Se parte de la tabla Δ(S) asociada a una instancia previamente
+#   seleccionada.
+# - Se reconstruyen todas las coaliciones disponibles a partir de su
+#   representación simbólica.
+# - Se identifican los subconjuntos A y P objeto de análisis.
+# - Se consideran únicamente aquellas coaliciones S que cumplen
+#   simultáneamente:
 #
-# UTILIDAD:
-# - Análisis de efectos bajo condiciones iniciales
-# - Estudio de dependencias entre variables
-# - Descomposición avanzada de interacciones
-###############################################################################
+#       P ⊆ S
+#
+#       A ∩ S = ∅
+#
+# - Para cada coalición válida se construye:
+#
+#       S ∪ A
+#
+# - Se calcula la contribución marginal:
+#
+#       Δ(S ∪ A) − Δ(S)
+#
+# - Las contribuciones marginales obtenidas se agrupan según el tamaño
+#   de la coalición previa:
+#
+#       j = |S|
+#
+# - Para cada orden j se calcula la media de las contribuciones
+#   marginales observadas.
+# - Finalmente se comparan los resultados condicionados por presencia
+#   con los valores de Shapley por órdenes obtenidos sin
+#   condicionamiento.
+#
+# Escenarios considerados:
+#
+# - El procedimiento se aplica sistemáticamente a todas las
+#   combinaciones válidas entre el conjunto de presencia P y el
+#   conjunto objetivo A.
+#
+# 1) Uno a uno:
+#
+#       |P| = 1
+#       |A| = 1
+#
+#   Se analiza la influencia de una variable sobre otra variable
+#   individual.
+#
+# 2) Varios a uno:
+#
+#       |P| > 1
+#       |A| = 1
+#
+#   Se analiza la influencia conjunta de varias variables sobre una
+#   variable individual.
+#
+# 3) Uno a varios:
+#
+#       |P| = 1
+#       |A| > 1
+#
+#   Se analiza la influencia de una variable sobre un subconjunto de
+#   variables.
+#
+# 4) Varios a varios:
+#
+#       |P| > 1
+#       |A| > 1
+#
+#   Se analiza la influencia conjunta de un subconjunto de variables
+#   sobre otro subconjunto de variables.
+#
+# Restricción:
+#
+#       P ∩ A = ∅
+#
+# - Se impide cualquier solapamiento entre las variables cuya presencia
+#   se exige y las variables cuya contribución se evalúa.
+#
+# Interpretación:
+# - El valor Sh_{P→A}^j cuantifica la contribución conjunta media del
+#   subconjunto A cuando se incorpora a coaliciones de tamaño j que ya
+#   contienen las variables de P.
+# - La comparación entre Sh_A^j y Sh_{P→A}^j permite identificar cómo
+# cambia la contribución de A cuando la información representada por
+# P ya está disponible en la coalición.
+# - Diferencias entre ambas magnitudes pueden indicar efectos de
+#   dependencia, refuerzo, inhibición o interacción entre variables o
+#   grupos de variables.
+# - Los escenarios uno a uno permiten estudiar relaciones individuales,
+#   mientras que los escenarios varios a uno, uno a varios y varios a
+#   varios permiten caracterizar interacciones de complejidad creciente.
+#
+# Validación:
+# - Se verifica la correcta reconstrucción de las coaliciones.
+# - Se comprueba que los subconjuntos A y P pertenezcan al universo de
+#   variables disponible.
+# - Se verifica que A y P no compartan elementos.
+# - Se garantiza la existencia de las coaliciones necesarias para el
+#   cálculo de las contribuciones marginales.
+# - Se excluyen automáticamente las configuraciones incompatibles.
+#
+# Resultado:
+# - Valores Sh_{P→A}^j para todas las combinaciones consideradas.
+# - Comparación entre efectos condicionados y no condicionados.
+# - Representaciones gráficas de las relaciones entre presencia y
+#   contribución.
+# - Caracterización de dependencias e interacciones entre variables y
+#   subconjuntos de variables.
+#
+# ============================================================================
 
 calcular_shapley_presencia <- function(tabla_T_instancia, P, A, T0 = 0) {
   
@@ -1049,7 +869,7 @@ calcular_shapley_presencia <- function(tabla_T_instancia, P, A, T0 = 0) {
 }
 
 ###############################################################################
-# GRÁFICA FINAL: ÓRDENES + PRESENCIA (VERSIÓN CORRECTA Y ESTABLE)
+# GRÁFICA FINAL: ÓRDENES + PRESENCIA 
 #
 # Este bloque genera una visualización conjunta que compara:
 #
@@ -1125,9 +945,7 @@ plot_sh_presencia <- function(tab_ord, tab_pres, A, P, fila) {
   A_ids <- var_ids[A]
   P_ids <- var_ids[P]
   
-  # ---------------------------------------------------------------------------
-  # 1. ETIQUETAS plotmath (MISMO FORMATO QUE EL ORIGINAL)
-  # ---------------------------------------------------------------------------
+
   
   # ÓRDENES (verde)
   etiqueta_ordenes <- paste0(
@@ -1145,9 +963,7 @@ plot_sh_presencia <- function(tab_ord, tab_pres, A, P, fila) {
     ",'}')), ')')"
   )
   
-  # ---------------------------------------------------------------------------
-  # 2. POSICIONES DE LAS ETIQUETAS (COMO ANTES)
-  # ---------------------------------------------------------------------------
+
   yr <- range(c(tab_ord$Sh, tab_pres$Sh), na.rm = TRUE)
   dy <- 0.06 * diff(yr)
   if (!is.finite(dy) || dy == 0) dy <- 0.05
@@ -1156,9 +972,7 @@ plot_sh_presencia <- function(tab_ord, tab_pres, A, P, fila) {
   y_top  <- max(yr)
   y_bot  <- max(yr) - dy
   
-  # ---------------------------------------------------------------------------
-  # 3. TÍTULO PROFESIONAL
-  # ---------------------------------------------------------------------------
+
   nombre_A <- paste(A, collapse = " + ")
   nombre_P <- paste(P, collapse = " + ")
   
@@ -1237,7 +1051,7 @@ plot_sh_presencia <- function(tab_ord, tab_pres, A, P, fila) {
 }
 
 ###############################################################################
-# BUCLES DE PRESENCIA – COBERTURA COMPLETA Y ORDEN PROFESIONAL
+# BUCLES DE PRESENCIA – 
 #
 # Este bloque ejecuta de forma exhaustiva el análisis de Shapley condicionado
 # por presencia para TODAS las combinaciones posibles entre:
@@ -1388,85 +1202,194 @@ for (kA in 2:(length(vars)-1)) {
 ############################ Ausencia ##########################################
 ################################################################################
 
-###############################################################################
-# SHAPLEY POR AUSENCIA (Q → A) POR ÓRDENES
+# ============================================================================
+# 5. VALOR DE SHAPLEY POR ÓRDENES CONDICIONADO POR AUSENCIA
+# ============================================================================
 #
-# Este bloque calcula el valor de Shapley por órdenes condicionado a la
-# AUSENCIA de un conjunto de variables Q.
+# Objetivo:
+# Extender la representación del valor de Shapley por órdenes
+# incorporando condiciones explícitas de ausencia, con el fin de
+# analizar cómo cambia la contribución de un subconjunto de variables A
+# cuando otro subconjunto de variables Q no está presente en las
+# coaliciones consideradas.
 #
-# CONTEXTO:
-# - Se dispone de valores T(S) para todas las coaliciones posibles
-# - Se quiere analizar el impacto de un conjunto A bajo la condición de que
-#   ciertas variables Q NO estén presentes en la coalición
+# Motivación:
+# - Los procedimientos anteriores permiten estudiar contribuciones
+#   conjuntas sin restricciones o condicionadas a la presencia de un
+#   subconjunto P.
+# - Sin embargo, en numerosos problemas resulta igualmente relevante
+#   analizar el comportamiento de un subconjunto de variables en
+#   escenarios donde determinadas variables se encuentran ausentes.
+# - Esta situación permite estudiar redundancias, sustituciones,
+#   dependencias negativas y relaciones de complementariedad entre
+#   variables.
 #
-# OBJETIVO:
-# - Medir el efecto marginal de añadir A únicamente sobre coaliciones S que:
-#       * NO contienen variables de Q (ausencia)
-#       * NO contienen variables de A (consistencia del cálculo)
+# Definición:
 #
-# DEFINICIÓN FORMAL:
-#   Sh_{AUS(Q)→A}^j =
-#     E[ T(S ∪ A) − T(S)
-#        | |S| = j, Q ∩ S = ∅, A ∩ S = ∅ ]
+#     Sh_{AUS(Q)→A}^j =
+#       E[ Δ(S ∪ A) − Δ(S) |
+#          |S| = j,
+#          Q ∩ S = ∅,
+#          A ∩ S = ∅ ]
 #
-# INTERPRETACIÓN:
-# - Se mide el impacto de A en un contexto donde Q está explícitamente ausente
-# - Permite responder preguntas como:
-#     "¿Qué efecto tiene A cuando Q no está presente?"
+# donde:
 #
-# DIFERENCIA CLAVE RESPECTO A PRESENCIA:
-# - PRESENCIA:
-#       P ⊆ S        → variables obligatorias en S
+# - A representa el subconjunto de variables objetivo.
+# - Q representa el subconjunto de variables cuya ausencia se impone.
+# - S representa una coalición compatible con dichas restricciones.
+# - j representa el tamaño de la coalición previa S.
+# - Δ(S) representa la contribución asociada a la coalición S.
 #
-# - AUSENCIA:
-#       Q ∩ S = ∅    → variables prohibidas en S
+# Relación con los procedimientos previos:
 #
-# INTUICIÓN:
-# - Sirve para detectar:
-#     * dependencia negativa (A solo funciona sin Q)
-#     * sustitución entre variables
-#     * redundancias en el modelo
+# - El valor de Shapley por órdenes estándar considera todas las
+#   coaliciones compatibles.
 #
-# LÓGICA DEL ALGORITMO:
-# 1) Reconstruir todas las coaliciones S (forma canónica)
-# 2) Filtrar coaliciones válidas:
-#       * S no contiene ningún elemento de Q
-#       * S no contiene elementos de A
-# 3) Para cada coalición válida:
-#       * construir S ∪ A
-#       * calcular contribución marginal:
-#             T(S ∪ A) − T(S)
-# 4) Agrupar por tamaño de S (orden j)
-# 5) Calcular la media por cada orden
+# - El valor de Shapley condicionado por presencia considera únicamente
+#   aquellas coaliciones que incluyen un subconjunto obligatorio P.
 #
-# VALIDACIONES:
-# - Q debe estar contenido en el conjunto de variables
-# - A debe estar contenido en el conjunto de variables
-# - Q y A no pueden solaparse
+# - El procedimiento actual considera únicamente aquellas coaliciones
+#   que excluyen explícitamente un subconjunto Q.
 #
-# CONTROL DE LÍMITES:
-# - max_j = n - |A| - |Q|
-#   Esto evita construir coaliciones imposibles
+# - Cuando:
 #
-# - Si max_j < 0:
-#     → no existen coaliciones válidas
-#     → se devuelve un data.frame vacío
+#       Q = ∅
 #
-# CASOS IMPORTANTES:
-# - S = ∅ → se usa T0 como valor base
-# - Si falta S ∪ A → se ignora (robustez)
-# - Si no hay contribuciones en un orden → NA
+#   se recupera el valor de Shapley por órdenes generalizado definido
+#   previamente.
 #
-# RESULTADO:
-# - data.frame con:
-#     j  → tamaño de la coalición S
-#     Sh → contribución media en ese orden bajo ausencia de Q
+# Metodología:
+# - Se parte de la tabla Δ(S) correspondiente a una instancia
+#   previamente seleccionada.
+# - Se reconstruyen todas las coaliciones disponibles a partir de su
+#   representación simbólica.
+# - Se identifican los subconjuntos A y Q objeto de análisis.
+# - Se consideran únicamente aquellas coaliciones S que cumplen
+#   simultáneamente:
 #
-# UTILIDAD:
-# - Analizar efectos de exclusión
-# - Detectar variables sustitutas o redundantes
-# - Evaluar robustez del modelo ante ausencia de variables
-###############################################################################
+#       Q ∩ S = ∅
+#
+#       A ∩ S = ∅
+#
+# - Para cada coalición válida se construye:
+#
+#       S ∪ A
+#
+# - Se calcula la contribución marginal:
+#
+#       Δ(S ∪ A) − Δ(S)
+#
+# - Las contribuciones marginales obtenidas se agrupan según el tamaño
+#   de la coalición previa:
+#
+#       j = |S|
+#
+# - Para cada orden j se calcula la media de las contribuciones
+#   marginales observadas.
+# - Finalmente se comparan los resultados obtenidos con los valores de
+#   Shapley por órdenes estándar y con los obtenidos bajo condiciones
+#   de presencia.
+#
+# Escenarios considerados:
+#
+# - El procedimiento se aplica de forma sistemática a todas las
+#   combinaciones válidas entre el conjunto de ausencia Q y el conjunto
+#   objetivo A.
+#
+# 1) Uno a uno:
+#
+#       |Q| = 1
+#       |A| = 1
+#
+#   Se analiza el efecto de la ausencia de una variable sobre la
+#   contribución de otra variable individual.
+#
+# 2) Varios a uno:
+#
+#       |Q| > 1
+#       |A| = 1
+#
+#   Se analiza el efecto de la ausencia conjunta de varias variables
+#   sobre una variable individual.
+#
+# 3) Uno a varios:
+#
+#       |Q| = 1
+#       |A| > 1
+#
+#   Se analiza el efecto de la ausencia de una variable sobre la
+#   contribución conjunta de un subconjunto de variables.
+#
+# 4) Varios a varios:
+#
+#       |Q| > 1
+#       |A| > 1
+#
+#   Se analiza el efecto de la ausencia conjunta de varias variables
+#   sobre otro subconjunto de variables.
+#
+# Restricción:
+#
+#       Q ∩ A = ∅
+#
+# - Se evita cualquier solapamiento entre las variables cuya ausencia
+#   se impone y las variables cuya contribución se evalúa.
+#
+# Interpretación:
+# - El valor Sh_{AUS(Q)→A}^j cuantifica la contribución conjunta media
+#   del subconjunto A cuando se incorpora a coaliciones de tamaño j que
+#   no contienen ninguna variable perteneciente a Q.
+# - La comparación entre Sh_A^j y Sh_{AUS(Q)→A}^j permite analizar cómo
+#   cambia la contribución de A cuando determinadas variables quedan
+#   excluidas del contexto considerado.
+# - Diferencias significativas entre ambas magnitudes pueden indicar
+#   redundancia, sustitución, dependencia negativa o necesidad de
+#   cooperación entre variables.
+# - Los escenarios uno a uno permiten estudiar relaciones simples,
+#   mientras que los escenarios varios a uno, uno a varios y varios a
+#   varios permiten caracterizar mecanismos de interacción más
+#   complejos.
+#
+# Comparación conjunta:
+#
+# - La comparación simultánea entre:
+#
+#       Sh_A^j
+#
+#       Sh_{P→A}^j
+#
+#       Sh_{AUS(Q)→A}^j
+#
+#   permite evaluar el comportamiento de A bajo tres contextos:
+#
+#   · Sin condicionamiento.
+#   · Condicionado por presencia.
+#   · Condicionado por ausencia.
+#
+# - Esta comparación proporciona una caracterización más completa de
+#   las dependencias estructurales entre variables y subconjuntos de
+#   variables.
+#
+# Validación:
+# - Se verifica la correcta reconstrucción de las coaliciones.
+# - Se comprueba que los subconjuntos A y Q pertenezcan al universo de
+#   variables disponible.
+# - Se verifica que A y Q no compartan elementos.
+# - Se garantiza la existencia de las coaliciones necesarias para el
+#   cálculo de las contribuciones marginales.
+# - Se excluyen automáticamente las configuraciones incompatibles.
+# - Se controla la existencia de órdenes válidos para cada combinación
+#   considerada.
+#
+# Resultado:
+# - Valores Sh_{AUS(Q)→A}^j para todas las combinaciones analizadas.
+# - Comparación entre efectos globales, condicionados por presencia y
+#   condicionados por ausencia.
+# - Representaciones gráficas conjuntas de las tres situaciones.
+# - Identificación de dependencias, redundancias y mecanismos de
+#   sustitución entre variables y subconjuntos de variables.
+#
+# ============================================================================
 
 
 calcular_shapley_ausencia <- function(tabla_T_instancia, Q, A, T0 = 0) {
@@ -1518,71 +1441,6 @@ calcular_shapley_ausencia <- function(tabla_T_instancia, Q, A, T0 = 0) {
   data.frame(j = 0:max_j, Sh = Sh)
 }
 
-###############################################################################
-# FUNCIONES AUXILIARES: CONSTRUCCIÓN SEGURA DE ETIQUETAS plotmath Y TEXTOS GRID
-#
-# Este bloque define dos funciones auxiliares fundamentales para trabajar con
-# visualizaciones avanzadas que usan expresiones matemáticas en R:
-#
-# 1) build_group_ids:
-#    - Construye correctamente la representación de conjuntos en plotmath
-#    - Soporta automáticamente:
-#         * un solo elemento  → {1}
-#         * múltiples elementos → {1,2,3}
-#
-#    PROBLEMA:
-#    - plotmath NO acepta directamente vectores tipo "1,2"
-#    - Cuando hay más de un elemento, exige usar list()
-#
-#    SOLUCIÓN:
-#    - Si hay un solo ID:
-#         group('{', 1, '}')
-#
-#    - Si hay varios:
-#         group('{', list(1,2,3), '}')
-#
-#    RESULTADO:
-#    - Devuelve un string válido para plotmath listo para usar con parse = TRUE
-#
-#
-# 2) textGrob_math:
-#    - Crea un objeto gráfico (grob) que renderiza expresiones plotmath dentro
-#      del sistema grid de R
-#
-#    CONTEXTO:
-#    - ggplot2 usa internamente grid
-#    - Para layouts avanzados (ej: grid.arrange, facetting manual, etc.)
-#      es necesario crear objetos gráficos directamente
-#
-#    PROBLEMA:
-#    - plotmath necesita convertirse en expresión antes de renderizarse
-#    - annotate() no siempre es suficiente en layouts complejos
-#
-#    SOLUCIÓN:
-#    - parse(text = label) → convierte string a expresión
-#    - as.expression() → formato compatible con grid
-#    - textGrob() → crea el objeto gráfico renderizable
-#
-#    PARÁMETROS:
-#    - label   → string en formato plotmath
-#    - col     → color del texto
-#    - fontsize→ tamaño del texto
-#    - x, y    → posición relativa (0 a 1, sistema "npc")
-#    - hjust   → alineación horizontal
-#    - vjust   → alineación vertical
-#
-#    RESULTADO:
-#    - Devuelve un grob listo para usar en grid.draw(), arrangeGrob(), etc.
-#
-# UTILIDAD GLOBAL:
-# - Evita errores de sintaxis en plotmath
-# - Centraliza la lógica de representación matemática
-# - Permite escalar a gráficos complejos (dashboards, layouts, etc.)
-###############################################################################
-
-# -----------------------------------------------------------------------------
-# Construye correctamente {i} o {i,j,k} en plotmath
-# -----------------------------------------------------------------------------
 
 build_group_ids <- function(ids) {
   if (length(ids) == 1) {
@@ -1593,9 +1451,7 @@ build_group_ids <- function(ids) {
 }
 
 
-# -----------------------------------------------------------------------------
-# Crea un objeto textGrob compatible con plotmath (grid)
-# -----------------------------------------------------------------------------
+
 
 textGrob_math <- function(label, col, fontsize = 12,
                           x = 0.5, y = 0.5,
@@ -1674,15 +1530,11 @@ plot_sh_presencia_ausencia <- function(tab_ord,
                                        P,
                                        fila) {
   
-  # ---------------------------------------------------------------------------
-  # IDs numéricos
-  # ---------------------------------------------------------------------------
+
   A_ids <- var_ids[A]
   P_ids <- var_ids[P]
   
-  # ---------------------------------------------------------------------------
-  # ETIQUETAS plotmath
-  # ---------------------------------------------------------------------------
+
   
   etiqueta_ordenes <- paste0(
     "Sh[group('{',",
@@ -1706,9 +1558,7 @@ plot_sh_presencia_ausencia <- function(tab_ord,
     ",'}')), ')')"
   )
   
-  # ---------------------------------------------------------------------------
-  # GRÁFICA BASE
-  # ---------------------------------------------------------------------------
+-
   nombre_A <- paste(A, collapse = " + ")
   nombre_P <- paste(P, collapse = " + ")
   
@@ -1733,7 +1583,7 @@ plot_sh_presencia_ausencia <- function(tab_ord,
                linewidth = 1.3, color = "#FFD700", na.rm = TRUE)
   
   # ---------------------------------------------------------------------------
-  # ETIQUETAS FUERA DEL PANEL (FORMATO AUSENCIA)
+  # ETIQUETAS FUERA DEL PANEL 
   # ---------------------------------------------------------------------------
   p <- p +
     annotation_custom(
@@ -1750,7 +1600,7 @@ plot_sh_presencia_ausencia <- function(tab_ord,
     )
   
   # ---------------------------------------------------------------------------
-  # EJES Y TEMA (PROFESIONAL)
+  # EJES Y TEMA 
   # ---------------------------------------------------------------------------
   p +
     labs(
@@ -1988,102 +1838,108 @@ for (kA in 2:(length(vars) - 1)) {
 ################################################################################
 ################################################################################
 
-###############################################################################
-# EXPORTACIÓN A PDF DEL ANÁLISIS COMPLETO (ÓRDENES + PRESENCIA + AUSENCIA)
+# ============================================================================
+# 6. ORGANIZACIÓN Y EXPORTACIÓN DE LOS RESULTADOS GRÁFICOS
+# ============================================================================
 #
-# Este bloque construye un documento PDF profesional que incluye:
+# Objetivo:
+# Generar una representación documental estructurada de los resultados
+# obtenidos en los análisis de Shapley por órdenes, presencia y
+# ausencia, facilitando su revisión, interpretación y posterior
+# utilización en informes, tesis, artículos o procesos de validación.
 #
-#   - Portada explicativa
-#   - Separadores de secciones
-#   - Todas las gráficas generadas en el análisis:
-#       * Shapley por órdenes
-#       * Shapley por presencia
-#       * Shapley por ausencia
+# Motivación:
+# - Los procedimientos anteriores generan un número potencialmente
+#   elevado de representaciones gráficas.
+# - La interpretación conjunta de dichos resultados requiere una
+#   organización sistemática y reproducible.
+# - Resulta conveniente disponer de un documento único que integre de
+#   forma ordenada todas las visualizaciones generadas durante el
+#   análisis.
 #
-# en un formato ordenado y listo para lectura (tipo informe / tesis / auditoría).
+# Metodología:
+# - Se crea un documento multipágina que actuará como contenedor único
+#   de los resultados.
+# - Se incorpora una portada descriptiva con la información general del
+#   análisis realizado.
+# - Los resultados se organizan en secciones temáticas que reflejan los
+#   distintos tipos de relaciones estudiadas entre conjuntos de
+#   variables.
+# - Para cada combinación analizada se recuperan:
 #
-# OBJETIVO:
-# - Automatizar completamente la generación de informes
-# - Evitar exportación manual de gráficos
-# - Generar un documento estructurado y reproducible
+#       Sh_A^j
 #
-# COMPONENTES DEL BLOQUE:
+#       Sh_{P→A}^j
 #
-# 1) GESTIÓN DEL PDF:
-#    - open_pdf() → abre dispositivo gráfico PDF
-#    - close_pdf() → lo cierra correctamente
-#    - Se usa on.exit() para asegurar cierre incluso si hay error
+#       Sh_{AUS(P)→A}^j
 #
-# 2) PÁGINAS DE TEXTO:
-#    - print_text_page():
-#        * crea páginas tipo portada/separador
-#        * usa grid (no ggplot)
-#        * permite incluir título, subtítulo y texto explicativo
+# - A partir de dichas magnitudes se genera la correspondiente
+#   representación gráfica comparativa.
+# - Cada representación se incorpora como una página independiente
+#   dentro del documento final.
+# - El procedimiento se aplica sistemáticamente a todas las
+#   configuraciones válidas consideradas durante el análisis.
 #
-# 3) FUNCION PRINCIPAL:
-#    exportar_presencia_ausencia_pdf()
+# Organización del documento:
 #
-#    - Orquesta todo el proceso:
-#        * abre PDF
-#        * genera portada
-#        * divide en secciones
-#        * recorre todas las combinaciones (A, P)
-#        * imprime cada gráfico
+# - Portada general del análisis.
 #
-# ESTRUCTURA DEL DOCUMENTO:
+# - Sección 1:
 #
-# 1) PORTADA:
-#    - título del análisis
-#    - fila analizada
-#    - texto metodológico (editable)
+#       Uno a uno
 #
-# 2) SECCIONES:
-#    - Relación 1 a 1
-#    - Relación 1 a varias
-#    - Relación varias a 1
-#    - Relación varias a varias
+#   Relaciones entre variables individuales.
 #
-# 3) CONTENIDO:
-#    - cada gráfico ocupa una página completa
-#    - orden coherente para facilitar lectura
+# - Sección 2:
 #
-# DETALLES TÉCNICOS IMPORTANTES:
+#       Uno a varios
 #
-# - onefile = TRUE:
-#     todo va en un único PDF multipágina
+#   Influencia de variables individuales sobre subconjuntos de
+#   variables.
 #
-# - useDingbats = FALSE:
-#     evita problemas de tipografía en algunos visores
+# - Sección 3:
 #
-# - grid.newpage():
-#     fuerza salto de página
+#       Varios a uno
 #
-# - print():
-#     necesario para renderizar ggplot dentro del PDF
+#   Influencia de subconjuntos de variables sobre variables
+#   individuales.
 #
-# ROBUSTEZ:
-# - crea directorios automáticamente si no existen
-# - evita fugas de dispositivos gráficos
-# - mantiene consistencia con todo el pipeline anterior
+# - Sección 4:
 #
-# RESULTADO:
-# - PDF completo, ordenado y listo para:
-#     * documentación
-#     * presentación
-#     * análisis posterior
+#       Varios a varios
 #
-# LIMITACIÓN PRÁCTICA:
-# - El número de páginas puede crecer mucho (combinaciones exponenciales)
+#   Influencia entre subconjuntos arbitrarios de variables.
 #
-# USO RECOMENDADO:
-# - análisis controlado (filtrar vars si es necesario)
-# - uso en validación de modelos
-# - generación de informes reproducibles
-###############################################################################
+# Interpretación:
+# - El documento generado constituye una representación completa del
+#   comportamiento de las contribuciones por órdenes bajo los distintos
+#   escenarios analizados.
+# - La comparación simultánea entre los efectos globales, de presencia
+#   y de ausencia facilita la identificación de dependencias,
+#   redundancias y mecanismos de interacción entre variables.
+# - La organización jerárquica del documento simplifica la exploración
+#   de resultados incluso cuando el número de combinaciones analizadas
+#   es elevado.
+#
+# Validación:
+# - Se verifica la correcta generación de las representaciones
+#   gráficas.
+# - Se garantiza la inclusión de todas las combinaciones válidas
+#   consideradas durante el análisis.
+# - Se verifica la correcta estructuración de las distintas secciones
+#   del documento.
+# - Se asegura la integridad del proceso de exportación.
+#
+# Resultado:
+# - Documento multipágina con la totalidad de los resultados gráficos.
+# - Organización estructurada por tipos de relaciones entre variables.
+# - Representación conjunta de los análisis por órdenes, presencia y
+#   ausencia.
+# - Soporte documental para interpretación, validación y comunicación
+#   de resultados.
+#
+# ============================================================================
 
-###############################################################################
-# PDF helpers
-###############################################################################
 
 library(grid)
 
@@ -2103,9 +1959,7 @@ open_pdf <- function(file, width = 12, height = 8.5) {
 
 close_pdf <- function() grDevices::dev.off()
 
-###############################################################################
-# Página de texto (portada / separador)
-###############################################################################
+
 print_text_page <- function(title,
                             subtitle = NULL,
                             body = NULL) {
@@ -2294,8 +2148,7 @@ exportar_presencia_ausencia_pdf <- function(
 }
 
 exportar_presencia_ausencia_pdf(
-  ruta_pdf = "C:\\Users\\danis\\OneDrive\\Escritorio\\Phd\\4.1. Escritura de Tesis\\Real Case. Resultados\\Shap_Graficos.pdf",
- #ruta_pdf = "C:\\Users\\ruta\\Archivo.pdf",
+  #ruta_pdf = "C:\\Users\\ruta...\\Archivo.pdf",
   tabla_T_instancia = tabla_T_instancia,
   row_instancia = row_instancia_ordenes,
   vars = vars,
@@ -2309,23 +2162,141 @@ Modelo: Glm – Clasificación.
 
 
 
-
-################################## Elegir variables ####################################
-########################################################################################
-########################################################################################
-###############################################################################
-
-###############################################################################
-# CHECK MANUAL DEFINITIVO
+# ============================================================================
+# 7. INSPECCIÓN DIRIGIDA DE RELACIONES ENTRE VARIABLES Y SUBCONJUNTOS
+# ============================================================================
 #
-# A : variable(s) analizada(s)
-# P : variable(s) que influyen
+# Objetivo:
+# Facilitar el análisis detallado de relaciones específicas entre
+# subconjuntos de variables mediante la comparación simultánea de los
+# valores de Shapley por órdenes, presencia y ausencia para una
+# configuración seleccionada por el usuario.
 #
-# Se comparan en una sola gráfica:
-#   - ÓRDENES (baseline)
-#   - PRESENCIA de P
-#   - AUSENCIA de P
-###############################################################################
+# Motivación:
+# - Los procedimientos anteriores generan de forma automática un gran
+#   número de combinaciones entre subconjuntos de variables.
+# - En muchos casos resulta necesario inspeccionar manualmente
+#   relaciones concretas de especial interés.
+# - Este procedimiento permite analizar casos específicos sin recorrer
+#   la totalidad del espacio de combinaciones posibles.
+#
+# Definición:
+#
+# - Se distinguen dos subconjuntos:
+#
+#       A
+#
+#   subconjunto cuya contribución se desea evaluar.
+#
+#       P
+#
+#   subconjunto cuya influencia sobre A se desea analizar.
+#
+# - Para cada combinación seleccionada se comparan
+#   simultáneamente:
+#
+#       Sh_A^j
+#
+#       Sh_{P→A}^j
+#
+#       Sh_{AUS(P)→A}^j
+#
+# Metodología:
+# - El usuario selecciona explícitamente los subconjuntos A y P.
+# - Se verifica que ambos subconjuntos sean válidos.
+# - Se comprueba que no exista solapamiento entre ellos:
+#
+#       A ∩ P = ∅
+#
+# - Se calcula el valor de Shapley por órdenes asociado a A.
+# - Se calcula el valor de Shapley condicionado por presencia de P.
+# - Se calcula el valor de Shapley condicionado por ausencia de P.
+# - Las tres magnitudes obtenidas se representan conjuntamente en una
+#   única visualización.
+# - Se devuelven además las tablas numéricas correspondientes para su
+#   análisis detallado.
+#
+# Escenarios considerados:
+#
+# - El procedimiento admite cualquier combinación válida entre A y P.
+#
+# 1) Uno a uno:
+#
+#       |A| = 1
+#       |P| = 1
+#
+#   Ejemplo:
+#
+#       Age ← Ris
+#
+# - Se analiza la influencia de una variable individual sobre otra.
+#
+# 2) Uno a varios:
+#
+#       |A| > 1
+#       |P| = 1
+#
+#   Ejemplo:
+#
+#       {Age,Ris} ← Cho
+#
+# - Se analiza la influencia de una variable sobre un subconjunto.
+#
+# 3) Varios a uno:
+#
+#       |A| = 1
+#       |P| > 1
+#
+#   Ejemplo:
+#
+#       Ris ← {Cho,Sex}
+#
+# - Se analiza la influencia conjunta de varias variables sobre una
+#   variable individual.
+#
+# 4) Varios a varios:
+#
+#       |A| > 1
+#       |P| > 1
+#
+#   Ejemplo:
+#
+#       {Age,Rac} ← {Ris,Sex}
+#
+# - Se analiza la interacción entre dos subconjuntos arbitrarios de
+#   variables.
+#
+# Interpretación:
+# - La curva correspondiente a Sh_A^j representa el comportamiento
+#   global del subconjunto A.
+# - La curva correspondiente a Sh_{P→A}^j representa el comportamiento
+#   de A cuando las variables de P están presentes.
+# - La curva correspondiente a Sh_{AUS(P)→A}^j representa el
+#   comportamiento de A cuando las variables de P están ausentes.
+# - Las diferencias observadas entre las tres curvas permiten
+#   identificar relaciones de dependencia, refuerzo, inhibición,
+#   redundancia o complementariedad entre variables.
+#
+# Validación:
+# - Se verifica la definición correcta de los subconjuntos A y P.
+# - Se comprueba que A y P no compartan variables.
+# - Se verifica la disponibilidad de todas las variables implicadas en
+#   la tabla Δ(S).
+# - Se garantiza la obtención conjunta de los resultados asociados a
+#   órdenes, presencia y ausencia.
+#
+# Resultado:
+# - Comparación gráfica simultánea de:
+#
+#       Sh_A^j
+#       Sh_{P→A}^j
+#       Sh_{AUS(P)→A}^j
+#
+# - Tablas numéricas asociadas a cada magnitud.
+# - Herramienta de validación e interpretación de relaciones concretas
+#   seleccionadas por el usuario.
+#
+# ============================================================================
 check_shapley <- function(
     A,                    # variable(s) analizada(s)
     P,                    # variable(s) que influyen

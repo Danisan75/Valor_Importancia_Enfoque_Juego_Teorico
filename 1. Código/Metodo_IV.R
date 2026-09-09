@@ -4,46 +4,47 @@
 #################################################################################
 
 
-###############################################################################
-# B. INTEGRACIÓN: USAR matriz_mu PARA CALCULAR H(i,S) Y T(i,S) CON XGBOOST
-#
-# En este bloque se integra la información de dependencia contenida en la
-# matriz μ con un modelo XGBoost global entrenado previamente.
-#
-# El objetivo es definir y calcular el operador H(i,S), que combina:
-#  - Un modelo predictivo f(·) entrenado sobre todos los datos
-#  - Un conjunto S de variables conocidas (fijadas a la instancia i)
-#  - Un conjunto U = X \ S de variables no conocidas
-#  - Probabilidades μ(v | S) que modelan la fiabilidad de fijar v
-#
-# Este bloque NO recalcula μ, NO reentrena modelos por subconjunto
-# y NO altera resultados ya obtenidos. Únicamente integra piezas
-# previamente calculadas de forma coherente.
-###############################################################################
-
 library(xgboost)
 library(crayon)
 
-###############################################################################
-# B.0. EXTRAER MATRICES μ (YA CALCULADAS CON calcular_todo_Mu)
+# ============================================================================
+# 1. EXTRACCIÓN Y VALIDACIÓN DE LAS MATRICES μ(v|S)
+# ============================================================================
 #
-# En este bloque se extraen las matrices μ_j(S) previamente calculadas.
+# Objetivo:
+# Recuperar las matrices μ(v|S) previamente calculadas para su utilización
+# posterior en la construcción de los operadores H(i,S) y T(i,S).
 #
-# Cada matriz μ contiene:
-#  - Filas: coaliciones S de variables conocidas
-#  - Columnas: variables objetivo v
-#  - Valores: μ(v | S) ∈ [0,1], que representan la probabilidad de "acierto"
-#    al fijar v cuando el conjunto conocido es S
+# Metodología:
+# - Se parte de los resultados obtenidos del cálculo de μ(v|S).
+# - Se extrae la matriz μ asociada a cada problema de aprendizaje.
+# - Cada matriz contiene la información de dependencia previamente
+#   estimada entre variables.
 #
-# Se separan explícitamente los casos de:
-#  - Regresión (target continuo y)
-#  - Clasificación (target binario y_b)
 #
-# Este bloque es puramente de extracción y validación:
-#  - NO recalcula μ
-#  - NO modifica los valores
-#  - Garantiza coherencia de dimensiones antes de la integración
-###############################################################################
+#
+# Casos considerados:
+#
+# Regresión:
+# - Variable objetivo continua y.
+#
+# Clasificación:
+# - Variable objetivo binaria y_b.
+#
+# Validación:
+# - Se verifica la existencia de las matrices μ.
+# - Se comprueban sus dimensiones.
+# - No se recalcula ningún valor μ.
+# - No se modifican resultados obtenidos previamente.
+#
+# Resultado:
+# - Matriz μ(v|S) para regresión.
+# - Matriz μ(v|S) para clasificación.
+# - Confirmación de la estructura dimensional de ambas matrices.
+#
+# ============================================================================
+
+
 
 matriz_mu_y   <- res_Mu_y$matriz_mu    # para regresión (target = y)
 matriz_mu_log <- res_Mu_log$matriz_mu  # para clasificación (target = y_b)
@@ -54,47 +55,50 @@ print(dim(matriz_mu_y))
 cat("\n===== MATRIZ μ_j(S) PARA CLASIFICACIÓN (target = y_booleana) =====\n")
 print(dim(matriz_mu_log))
 
-###############################################################################
-# B.1. FUNCIONES GENERALES XGBOOST (REGRESIÓN / CLASIFICACIÓN)
+# ============================================================================
+# 2. PREPARACIÓN DE LOS DATOS DE ENTRADA PARA EL MODELO GLOBAL XGBOOST
+# ============================================================================
 #
-# Este bloque define funciones auxiliares para preparar los datos de entrada
-# a un modelo XGBoost global de forma consistente y segura.
+# Objetivo:
+# Construir una representación homogénea de los datos que permita utilizar
+# de forma consistente un modelo global XGBoost en todas las fases
+# posteriores del método.
 #
-# Dado:
-#  - Un data.frame df
-#  - Una variable objetivo target
-#  - Un conjunto de predictores vars_pred
+# Metodología:
+# - Se parte de una base de datos original formada por una variable
+#   objetivo y un conjunto de variables predictoras.
+# - Se verifica la existencia de la variable objetivo seleccionada.
+# - Se verifica la disponibilidad de todas las variables predictoras
+#   requeridas para el análisis.
+# - Se separa la variable objetivo y del conjunto de predictores X.
+# - La matriz de predictores se transforma a una representación
+#   numérica compatible con XGBoost.
+# - En presencia de variables categóricas, se generan automáticamente
+#   las codificaciones necesarias para su utilización por el modelo.
 #
-# La función:
-#  1) Valida la existencia del target y de los predictores
-#  2) Extrae y separa (X, y)
-#  3) Convierte X en una matriz numérica mediante model.matrix
-#  4) Devuelve una estructura homogénea compatible con XGBoost
+# Interpretación:
+# - Este paso define el espacio de entrada utilizado por el modelo
+#   global XGBoost.
+# - Todas las predicciones posteriores se realizarán utilizando esta
+#   misma estructura de variables.
+# - La consistencia de dicha estructura garantiza la comparabilidad
+#   entre las distintas coaliciones analizadas posteriormente.
 #
-# Esta función NO entrena modelos.
-# Su único objetivo es garantizar que todas las predicciones posteriores
-# se realizan sobre matrices X alineadas y coherentes.
-###############################################################################
-###############################################################################
-# preparar_xy_global_XGB()
+# Validación:
+# - Se comprueba la existencia de la variable objetivo.
+# - Se comprueba la existencia de todos los predictores requeridos.
+# - Se verifica que el conjunto de predictores no esté vacío.
+# - Se verifica que la matriz numérica generada sea válida para su
+#   utilización por XGBoost.
 #
-# Función auxiliar para preparar los datos de entrada de un modelo XGBoost.
+# Resultado:
+# - Matriz numérica de predictores X preparada para XGBoost.
+# - Variable objetivo y asociada.
+# - Identificación del conjunto de predictores utilizado.
+# - Estructura común que servirá de referencia para todas las fases
+#   posteriores del procedimiento.
 #
-# Entrada:
-#  - df: data.frame con los datos originales
-#  - target: nombre de la variable objetivo
-#  - vars_pred: vector de nombres de variables predictoras
-#
-# Salida:
-#  - X_mat: matriz numérica de predictores (one-hot si es necesario)
-#  - y: vector de la variable objetivo
-#  - vars_pred: predictores utilizados (para trazabilidad)
-#
-# Esta función garantiza que:
-#  - No falten columnas
-#  - No se entrene con predictores vacíos
-#  - La matriz X sea válida para XGBoost
-###############################################################################
+# ============================================================================
 
 preparar_xy_global_XGB <- function(df, target, vars_pred) {
   df <- as.data.frame(df)
@@ -128,75 +132,88 @@ preparar_xy_global_XGB <- function(df, target, vars_pred) {
 
 
 
-################################################################################
-# Valida columnas y construye (X,y) globales en formato consistente para XGBoost.
-# Entrena un ÚNICO modelo XGBoost global y calcula la predicción media global.
+# ============================================================================
+# 3. ENTRENAMIENTO DEL MODELO GLOBAL XGBOOST
+# ============================================================================
 #
-# Este bloque define el modelo predictivo f(·) que se utilizará posteriormente
-# en el operador H(i,S). El modelo se entrena UNA SOLA VEZ sobre todos los datos
-# y se mantiene fijo durante todo el método.
+# Objetivo:
+# Construir un único modelo global XGBoost utilizando toda la información
+# disponible de la base de datos y obtener las predicciones asociadas a
+# dicho modelo.
 #
-# Es importante destacar que:
-#  - NO se entrena un modelo por subconjunto S
-#  - NO se entrena un modelo por escenario
-#  - NO se utiliza μ en este punto
+# Metodología:
+# - Se parte de la matriz de predictores X y de la variable objetivo y
+#   previamente preparadas.
+# - Se utiliza un único conjunto de datos que contiene todas las
+#   observaciones disponibles.
+# - Se entrena un único modelo global XGBoost.
+# - El modelo se ajusta una sola vez y permanece fijo durante todo
+#   el procedimiento posterior.
+# - No se entrena ningún modelo específico para coaliciones concretas.
+# - No se construyen modelos dependientes de las distintas configuraciones
+#   de información consideradas posteriormente.
 #
-# La matriz μ se integrará más adelante, exclusivamente a través del operador H.
-################################################################################
-################################################################################
-# ajustar_xgb_global_Mu()
+# Casos considerados:
 #
-# Esta función entrena un modelo XGBoost global f(·) a partir del dataset completo
-# y devuelve todos los elementos necesarios para su uso posterior en H(i,S).
+# Regresión:
+# - La variable objetivo se transforma a formato numérico.
+# - Se utiliza una función objetivo de regresión para el entrenamiento
+#   del modelo.
 #
-# Entrada:
-#  - df: data.frame con los datos originales
-#  - target: variable objetivo
-#  - tipo: "regresion" o "clasificacion"
-#  - vars_pred: conjunto de variables predictoras
+# Clasificación:
+# - Las variables objetivo lógicas se transforman a valores 0 y 1.
+# - Las variables objetivo categóricas binarias se transforman a
+#   valores 0 y 1.
+# - Las variables objetivo numéricas se utilizan directamente.
+# - Se utiliza una función objetivo de clasificación binaria para el
+#   entrenamiento del modelo.
 #
-# Salida:
-#  - modelo: objeto xgboost entrenado
-#  - pred: predicciones f(X) sobre el dataset completo
-#  - K_aux: media global de las predicciones (solo sanity-check)
-#  - feature_names: nombres exactos de las columnas usadas por el modelo
+# Interpretación:
+# - El modelo obtenido representa la función predictiva global f(·)
+#   utilizada en todo el método.
+# - Todas las evaluaciones posteriores utilizarán exactamente el mismo
+#   modelo entrenado.
+# - Las diferencias observadas entre escenarios o coaliciones se deberán
+#   exclusivamente a la información proporcionada al modelo y no a cambios
+#   en el proceso de entrenamiento.
 #
-# IMPORTANTE:
-#  K_aux NO se utiliza como definición formal de H(vacío).
-#  El valor H(vacío) se calcula posteriormente aplicando el MISMO operador H
-#  con S = ∅ y la matriz μ, garantizando coherencia metodológica.
-################################################################################
-################################################################################
-# Normalización del target según el tipo de modelo:
+# Relación con la matriz μ:
+# - La matriz μ(v|S) no interviene en esta fase.
+# - No se utilizan probabilidades de dependencia durante el ajuste
+#   del modelo.
+# - La integración de μ(v|S) se realiza posteriormente durante la
+#   construcción del operador H(i,S).
 #
-# - En clasificación:
-#     * lógicos → 0/1
-#     * factores de dos niveles → 0/1
-#     * numéricos → se usan directamente
+# Predicciones globales:
+# - Una vez entrenado el modelo se calculan las predicciones para todas
+#   las observaciones de la base de datos.
+# - Estas predicciones permiten verificar el comportamiento general
+#   del modelo entrenado.
 #
-# - En regresión:
-#     * el target se convierte a numérico
+# Valor auxiliar K_aux:
+# - Se define como la media de las predicciones generadas por el modelo
+#   global sobre la base de datos completa.
+# - Su función es exclusivamente diagnóstica y de validación.
+# - No forma parte de la definición formal del método.
+# - No sustituye al valor H(∅).
+# - No interviene en el cálculo posterior de H(i,S).
 #
-# Esto garantiza que el modelo XGBoost reciba siempre un vector de etiquetas
-# compatible con la función objetivo especificada.
-################################################################################
-################################################################################
-# K_aux = E_D[f(X)] (SANITY CHECK)
+# Validación:
+# - Se verifica la consistencia de la variable objetivo con el tipo de
+#   modelo especificado.
+# - Se verifica la correcta construcción de la matriz empleada por
+#   XGBoost.
+# - Se almacena la estructura exacta de variables utilizada durante
+#   el entrenamiento.
 #
-# Se calcula la media global de las predicciones del modelo entrenado.
+# Resultado:
+# - Modelo global XGBoost entrenado.
+# - Predicciones globales asociadas al modelo.
+# - Valor auxiliar K_aux para comprobaciones diagnósticas.
+# - Identificación del conjunto de predictores utilizado.
+# - Estructura exacta de variables empleada por el modelo global.
 #
-# Este valor:
-#  - NO forma parte de la definición formal del método
-#  - NO sustituye a H(vacío)
-#  - NO se utiliza en el cálculo de H(i,S)
-#
-# Su única función es servir como comprobación auxiliar para verificar que:
-#  - El modelo está entrenado correctamente
-#  - Las predicciones tienen magnitud y signo razonables
-#
-# El valor H(vacío) se calcula posteriormente aplicando H(i,S) con S = ∅,
-# utilizando explícitamente la matriz μ y los escenarios de fallo.
-################################################################################
+# ============================================================================
 
 ajustar_xgb_global_Mu <- function(df,
                                   target,
@@ -289,24 +306,58 @@ ajustar_xgb_global_Mu <- function(df,
 }
 
 
-################################################################################
-# preparar_X_sub_para_global_Mu()
+# ============================================================================
+# 4. PREPARACIÓN Y ALINEACIÓN DE LAS SUBMUESTRAS PARA EL MODELO GLOBAL XGBOOST
+# ============================================================================
 #
-# Esta función prepara matrices X de submuestras contrafactuales para poder
-# predecir con el modelo XGBoost global ya entrenado.
+# Objetivo:
+# Construir una representación de las submuestras contrafactuales que sea
+# completamente compatible con la estructura utilizada durante el
+# entrenamiento del modelo global XGBoost.
 #
-# Dado un dataset contrafactual df_sub:
-#  - Se construye su matriz de diseño mediante model.matrix
-#  - Se alinea exactamente con las columnas usadas en el modelo global
-#  - Las columnas ausentes se rellenan con ceros
+# Metodología:
+# - Se parte de una submuestra contrafactual generada previamente.
+# - Se seleccionan exclusivamente las variables predictoras utilizadas
+#   por el modelo global.
+# - Se transforma la información disponible a una representación
+#   numérica compatible con XGBoost.
+# - Se reconstruye la estructura exacta de variables empleada durante
+#   el entrenamiento del modelo global.
+# - Cuando alguna variable derivada no está presente en la submuestra,
+#   se incorpora manteniendo un valor nulo.
+# - Las variables comunes entre la submuestra y el modelo global se
+#   conservan sin modificación.
 #
-# Esto garantiza que:
-#  - Todas las predicciones f(X) se realizan en el MISMO espacio de features
-#  - No hay incoherencias entre escenarios
-#  - No se reentrena ningún modelo
+# Interpretación:
+# - Este paso garantiza que todas las predicciones se realizan dentro
+#   del mismo espacio de representación utilizado por el modelo global.
+# - La estructura de entrada permanece constante para todas las
+#   coaliciones, instancias y escenarios analizados.
+# - Las diferencias observadas entre escenarios reflejan únicamente
+#   cambios en la información disponible y no cambios en la estructura
+#   de predicción.
 #
-# Esta función es esencial para poder integrar f(·) sobre escenarios en H(i,S).
-################################################################################
+# Consistencia:
+# - No se modifica el modelo global previamente entrenado.
+# - No se ajustan nuevos modelos.
+# - No se recalculan parámetros del modelo.
+# - No interviene todavía la matriz μ(v|S).
+#
+# Validación:
+# - Se comprueba la existencia de todas las variables predictoras
+#   requeridas en la submuestra.
+# - Se verifica la correcta construcción de la representación numérica.
+# - Se garantiza la coincidencia entre las variables utilizadas por la
+#   submuestra y las esperadas por el modelo global.
+#
+# Resultado:
+# - Matriz de predictores alineada con el modelo global XGBoost.
+# - Estructura de variables completamente compatible con las fases
+#   posteriores de predicción.
+# - Base común para la evaluación consistente de los distintos
+#   escenarios considerados en el operador H(i,S).
+#
+# ============================================================================
 
 
 preparar_X_sub_para_global_Mu <- function(df_sub,
@@ -337,86 +388,40 @@ preparar_X_sub_para_global_Mu <- function(df_sub,
   X_aligned
 }
 
-################################################################################
-# prepara matrices X/y, entrena un modelo global fijo y convierte/alinea
-# submuestras para poder predecir con ese mismo modelo de forma consistente.
+# ============================================================================
+# 5. RECUPERACIÓN DE LOS VALORES μ(v|S)
+# ============================================================================
 #
-# Este bloque define el modelo predictivo f(·) que se utilizará en todo el
-# Método 4. El modelo se entrena UNA SOLA VEZ sobre el dataset completo y se
-# mantiene fijo durante todo el proceso.
+# Objetivo:
+# Obtener el valor μ(v|S) asociado a una variable v y a una coalición S
+# utilizando una matriz μ previamente calculada.
 #
-# En este punto:
-#  - NO se calcula H(i,S)
-#  - NO se utiliza la matriz μ
-#  - NO se generan escenarios
+# Metodología:
+# - Se parte de una matriz μ cuyos valores ya han sido calculados.
+# - Se identifica la coalición S formada por las variables conocidas.
+# - Se construye el identificador asociado a dicha coalición.
+# - Se localiza la fila correspondiente a S en la matriz μ.
+# - Se recupera el valor asociado a la variable v.
 #
-# Este bloque únicamente fija el modelo f(·) y el espacio de features sobre
-# el que se integrarán posteriormente los escenarios definidos por μ.
-################################################################################
-################################################################################
-# ajustar_xgb_global_Mu()
+# Caso especial:
+# - Si la variable v ya pertenece a la coalición S, se asigna:
 #
-# Esta función entrena un modelo XGBoost global f(·) a partir del dataset
-# completo y devuelve todos los elementos necesarios para su uso posterior
-# en el operador H(i,S).
+#     μ(v|S) = 1
 #
-# El modelo entrenado:
-#  - Es ÚNICO
-#  - No depende del conjunto S
-#  - No depende de μ
-#  - No se reentrena para subconjuntos ni escenarios
+# Interpretación:
+# - El valor recuperado representa el valor μ(v|S) almacenado para la
+#   combinación formada por la variable v y la coalición S.
 #
-# Entrada:
-#  - df: data.frame con los datos originales
-#  - target: variable objetivo
-#  - tipo: "regresion" o "clasificacion"
-#  - vars_pred: conjunto de variables predictoras
+# Validación:
+# - Se comprueba que la variable v existe en la matriz μ.
+# - Se comprueba que la coalición S existe en la matriz μ.
+# - Se verifica que el valor recuperado no sea ausente.
+# - Se verifica que el valor recuperado pertenezca al intervalo [0,1].
 #
-# Salida:
-#  - modelo: objeto xgboost entrenado
-#  - pred: predicciones f(X) sobre el dataset completo
-#  - K_aux: media global de f(X), solo a efectos de comprobación
-#  - feature_names: nombres exactos de las columnas utilizadas por el modelo
-################################################################################
-
-
-
-
-
-################################################################################
-# Prepara y ALINEA las matrices X de submuestras contrafactuales para poder
-# predecir con un modelo XGBoost global YA ENTRENADO.
-# 
-# - NO entrena ningún modelo.
-# - Garantiza que las submuestras tengan exactamente las mismas columnas
-#   (feature_names) y en el mismo orden que el modelo global.
-################################################################################
-
-
-
-
-###############################################################################
-# prepara matrices X/y, entrena un modelo global fijo y convierte/alinea submuestras 
-# para poder predecir con ese mismo modelo de forma consistente.
-###############################################################################
-
-
-###############################################################################
-# B.2. μ_v(S) DESDE matriz_mu
-###############################################################################
-###############################################################################
-# Dado un conjunto de variables ya conocidas S
-# y una variable objetivo v,
-# devuelve el valor μ(v | S) almacenado en la matriz μ.
+# Resultado:
+# - Valor μ(v|S) asociado a la variable v y a la coalición S.
 #
-# - matriz_mu: matriz donde las filas representan coaliciones S
-#   (por ejemplo "empty", "Age", "Age+Sex") y las columnas variables objetivo v.
-# - S_known: vector con las variables conocidas (conjunto S).
-# - v: variable objetivo cuyo μ(v | S) se quiere recuperar.
-#
-# La función construye la clave asociada a S y accede a la celda correspondiente
-# de matriz_mu para obtener la mejora relativa μ(v | S) frente al modelo vacío.
-###############################################################################
+# ============================================================================
 
 get_mu_matriz <- function(matriz_mu, S_known, v) {
   
@@ -456,46 +461,65 @@ get_mu_matriz <- function(matriz_mu, S_known, v) {
   mu_val
 }
 
-###############################################################################
-# B.3. H(i,S) CON μ Y XGBOOST
-###############################################################################
-###############################################################################
-# Calcula el valor H(i,S) para una instancia fija i y un conjunto de variables
-# conocidas S, integrando un modelo XGBoost global sobre escenarios ponderados
-# por probabilidades μ(v | S).
+# ============================================================================
+# 6. CÁLCULO DE H(i,S) MEDIANTE μ(v|S) Y UN MODELO GLOBAL XGBOOST
+# ============================================================================
 #
-# Sea:
-# - f(·): modelo XGBoost global entrenado y fijo.
-# - S: conjunto de variables conocidas (fijadas al valor de la instancia i).
-# - U: conjunto de variables no conocidas (U = X \ S).
+# Objetivo:
+# Calcular el valor H(i,S) asociado a una instancia i y a una coalición S
+# utilizando un modelo global XGBoost y los valores μ(v|S) almacenados
+# previamente.
 #
-# Para cada variable v ∈ U se dispone de una probabilidad μ(v | S), que representa
-# la probabilidad de "acierto" al fijar v al valor observado en la instancia i.
+# Metodología:
+# - Se fija la coalición S utilizando los valores observados en la
+#   instancia i.
+# - Se identifican las variables no incluidas en S.
+# - Para cada una de dichas variables se recupera el valor μ(v|S)
+#   correspondiente.
+# - Se generan todos los escenarios posibles de acierto y fallo para
+#   las variables no incluidas en S.
+# - En cada escenario:
+#     · Las variables pertenecientes a S permanecen fijadas a los valores
+#       observados en la instancia i.
+#     · Las variables con acierto se fijan también al valor observado
+#       en la instancia i.
+#     · Las variables con fallo conservan la variabilidad original de
+#       la base de datos.
+# - Para cada escenario se construye la correspondiente submuestra
+#   contrafactual.
+# - La submuestra se transforma a una representación compatible con el
+#   modelo global XGBoost.
+# - Se obtienen las predicciones del modelo global para todas las filas
+#   de la submuestra.
+# - Se calcula la media de dichas predicciones.
 #
-# El método genera explícitamente todos los escenarios binarios posibles sobre U
-# (2^|U| combinaciones). En cada escenario:
+# Ponderación:
+# - A cada escenario se le asigna un peso construido a partir de los
+#   valores μ(v|S) de las variables no incluidas en S.
+# - Los pesos asociados a todos los escenarios deben sumar 1.
 #
-# - Las variables de S se fijan al valor observado en la instancia i.
-# - Las variables de U con acierto se fijan al valor de la instancia i.
-# - Las variables de U con fallo se dejan libres (distribución empírica del dataset).
+# Cálculo de H(i,S):
+# - H(i,S) se obtiene como la suma ponderada de las medias de predicción
+#   calculadas para todos los escenarios considerados.
 #
-# Para cada escenario s:
-# - Se calcula la predicción media m_s = E_D[f(X) | escenario s].
-# - Se calcula un peso w_s como el producto de:
-#     μ(v | S)      si v acierta en s
-#     1 − μ(v | S)  si v falla en s
+# Caso particular:
+# - Cuando S contiene todas las variables predictoras, todas las
+#   variables permanecen fijadas a los valores observados en la
+#   instancia i.
+# - En este caso H(i,S) se obtiene directamente como la media de las
+#   predicciones generadas por el modelo sobre la submuestra construida.
 #
-# Finalmente, H(i,S) se define como la esperanza ponderada:
+# Validación:
+# - Se comprueba que la instancia solicitada existe en la base de datos.
+# - Se verifica la obtención de todos los valores μ(v|S) necesarios.
+# - Se comprueba que la suma de los pesos de los escenarios sea igual a 1.
 #
-#     H(i,S) = Σ_s w_s · m_s
+# Resultado:
+# - Valor H(i,S) asociado a la instancia i y a la coalición S.
 #
-# donde la suma recorre todos los escenarios posibles y, bajo independencia,
-# Σ_s w_s = 1.
-###############################################################################
+# ============================================================================
 
-# ============================================================
-# CONSTRUCCIÓN DE SUBMUESTRA CONTRAFACTUAL (MISMO MÉTODO QUE M1)
-# ============================================================
+
 
 construir_submuestra_M1 <- function(df, S, U_aciertos, i_instancia) {
   df_sub <- df
@@ -514,9 +538,7 @@ construir_submuestra_M1 <- function(df, S, U_aciertos, i_instancia) {
   
   df_sub
 }
-###############################################################################
-# B.3bis. H(i,S) METODOLÓGICO PURO (SIN ATAJOS, SOLO PARA VALIDACIÓN)
-###############################################################################
+
 
 H_instancia_S_matriz_full <- function(df,
                                       obj_global,
@@ -547,10 +569,7 @@ H_instancia_S_matriz_full <- function(df,
     mu_unknown[j] <- get_mu_matriz(matriz_mu, S_known = S, v = U[j])
   }
   
-  # --------------------------------------------------
-  # CONSTRUCCIÓN CORRECTA DE ESCENARIOS
-  # {0,1}^0 = {∅}
-  # --------------------------------------------------
+
   if (k == 0) {
     patterns <- matrix(nrow = 1, ncol = 0)
   } else {
@@ -777,26 +796,39 @@ H_instancia_S_matriz <- function(df,
 }
 
 
-###############################################################################
-# B.4. GENERAR LISTA DE COALICIONES S DE PREDICTORES
-###############################################################################
-###############################################################################
-# generar_S_list() construye la lista completa de subconjuntos no vacíos S de un
-# conjunto de variables predictoras, hasta un tamaño máximo especificado.
+# ============================================================================
+# 7. GENERACIÓN DE LAS COALICIONES DE VARIABLES PREDICTORAS
+# ============================================================================
 #
-# Dado un conjunto de variables predictoras vars_pred = {v1, v2, ..., vp},
-# la función genera explícitamente todos los subconjuntos S ⊆ vars_pred tales que
-# 1 ≤ |S| ≤ max_size, utilizando combinatoria directa.
+# Objetivo:
+# Generar todas las coaliciones de variables predictoras que serán
+# utilizadas posteriormente en los cálculos dependientes del conjunto S.
 #
-# Cada elemento de la lista devuelta es un vector que representa un conjunto S
-# concreto de variables conocidas. Estos subconjuntos S se utilizarán
-# posteriormente como niveles de información conocida para evaluar cantidades
-# dependientes de S, como H(i,S), μ(v | S) u otros cálculos basados en la
-# enumeración sistemática de predictores.
+# Metodología:
+# - Se parte del conjunto completo de variables predictoras.
+# - Se generan todas las combinaciones posibles de variables cuyo tamaño
+#   sea mayor o igual que uno.
+# - Opcionalmente, puede establecerse un tamaño máximo para limitar el
+#   número de variables incluidas en cada coalición.
+# - Cada coalición se almacena como un conjunto específico de variables.
 #
-# El conjunto vacío no se incluye, ya que el caso S = ∅ se trata de forma separada
-# mediante el valor base K (predicción media global).
-###############################################################################
+# Interpretación:
+# - Cada coalición S representa un nivel concreto de información
+#   disponible.
+# - Las coaliciones generadas constituyen el conjunto de configuraciones
+#   que serán evaluadas posteriormente mediante los procedimientos
+#   definidos para el método.
+#
+# Validación:
+# - Se comprueba que exista al menos una variable predictora.
+# - Se verifica que el tamaño máximo considerado no supere el número
+#   total de variables disponibles.
+#
+# Resultado:
+# - Lista completa de coaliciones de variables predictoras.
+# - Una entrada por cada subconjunto S generado.
+#
+# ============================================================================
 
 
 generar_S_list <- function(vars_pred, max_size = NULL) {
@@ -825,44 +857,32 @@ generar_S_list <- function(vars_pred, max_size = NULL) {
 }
 
 
-###############################################################################
-# B.5. CALCULAR H(i,S) Y T(i,S) PARA TODO i Y TODOS LOS S
-###############################################################################
-
-###############################################################################
-# calcular_H_T_para_Sets_matriz() calcula, para todas las instancias i del dataset
-# y para todos los subconjuntos de variables S contenidos en S_list, los valores
-# H(i,S) y T(i,S).
+# ============================================================================
+# 9. FUNCIONES DE DEPURACIÓN Y VALIDACIÓN
+# ============================================================================
 #
-# Para cada conjunto S ∈ S_list, la función evalúa H(i,S) para cada instancia i
-# utilizando la función H_instancia_S_matriz(), que integra el modelo XGBoost
-# global sobre todos los escenarios definidos por las variables no conocidas
-# U = X \ S.
+# Objetivo:
+# Facilitar la inspección detallada del cálculo de H(i,S) para comprobar
+# el correcto funcionamiento del método.
 #
-# A partir de los valores H(i,S), se calcula la cantidad:
+# Metodología:
+# - Permiten ejecutar el cálculo de H(i,S) para instancias y coaliciones
+#   específicas en modo de depuración.
+# - Se muestran los valores μ(v|S) utilizados durante el cálculo.
+# - Se muestran los escenarios generados y los pesos asociados a cada uno.
+# - Se muestran las predicciones y contribuciones que intervienen en la
+#   obtención del valor final H(i,S).
 #
-#     T(i,S) = H(i,S) − K
+# Interpretación:
+# - Estas funciones tienen una finalidad exclusivamente diagnóstica.
+# - No modifican resultados ni intervienen en los cálculos principales
+#   del método.
 #
-# donde K es la predicción media global del modelo, equivalente al caso del
-# conjunto vacío S = ∅.
+# Resultado:
+# - Información detallada para la validación y revisión del cálculo
+#   de H(i,S).
 #
-# Los resultados se organizan en dos tablas:
-#
-# - H_tabla: contiene, para cada instancia i, los valores H(i,S) asociados a cada
-#   subconjunto S, junto con el valor base K.
-#
-# - T_tabla: contiene, para cada instancia i, los valores T(i,S), que representan
-#   la contribución marginal de conocer el conjunto S con respecto al nivel base K.
-#
-# El conjunto vacío no se incluye en S_list y se añade explícitamente al final,
-# asignando H(i, ∅) = K y T(i, ∅) = 0 para todas las instancias.
-#
-# La función permite opcionalmente activar un modo de depuración para inspeccionar
-# el cálculo de H(i,S) en detalle para una instancia y un subconjunto S concretos.
-###############################################################################
-# ============================================================
-# Calcular K = H(i, ∅) usando el MISMO operador H con μ
-# ============================================================
+# ============================================================================
 
 calcular_K_desde_H_empty_matriz <- function(df,
                                             obj_global,
@@ -959,41 +979,6 @@ calcular_H_T_para_Sets_matriz <- function(df,
 
 
 
-###############################################################################
-# B.6. DEBUGS
-###############################################################################
-
-###############################################################################
-# Este bloque define un conjunto de funciones auxiliares de depuración cuyo
-# objetivo es inspeccionar, validar y comprender en detalle el cálculo de H(i,S)
-# realizado por la función H_instancia_S_matriz().
-#
-# Las funciones permiten ejecutar el cálculo de H(i,S) en modo de depuración
-# para:
-#
-# - Una instancia concreta y todos los subconjuntos S de predictores.
-# - Varias instancias y todos los subconjuntos S.
-# - Una combinación específica de instancia i y subconjunto S.
-#
-# Durante la ejecución en modo debug, se muestran de forma explícita los pasos
-# internos del cálculo, incluyendo:
-#   - El conjunto de variables conocidas S y no conocidas U.
-#   - Los valores μ(v | S) utilizados.
-#   - Los escenarios de acierto y fallo generados sobre U.
-#   - Las tablas contrafactuales construidas para cada escenario.
-#   - Las predicciones medias m_s y los pesos w_s asociados.
-#
-# Estas funciones no modifican resultados, no devuelven nuevos valores analíticos
-# ni forman parte del pipeline principal de cálculo. Su finalidad es
-# exclusivamente diagnóstica y explicativa, facilitando la validación conceptual
-# y numérica del Método 4 y la comprensión detallada de cómo se construye el valor
-# final H(i,S).
-###############################################################################
-###############################################################################
-# DEBUG COMPLETO: VARIAS instancias, TODAS las S (SIEMPRE FULL)
-###############################################################################
-
-
 
 debug_instancias_todos_S_matriz <- function(df,
                                             obj_global,
@@ -1066,43 +1051,40 @@ debug_instancia_S_matriz <- function(df,
 }
 
 
-
-###############################################################################
-# B.7. ENVOLTORIO PRINCIPAL: calcular_H_T_con_Mu (XGBoost)
-###############################################################################
-
-###############################################################################
-# calcular_H_T_con_Mu() actúa como envoltorio principal del Método 4, coordinando
-# todo el proceso de cálculo de H(i,S) y T(i,S) a partir de una matriz μ ya
-# previamente calculada y un modelo XGBoost global.
+# ============================================================================
+# 10. EJECUCIÓN DEL MÉTODO
+# ============================================================================
 #
-# La función realiza las siguientes operaciones:
+# Objetivo:
+# Ejecutar de forma conjunta todas las fases del método para obtener los
+# valores H(i,S) y T(i,S) a partir de una matriz μ(v|S) previamente
+# calculada.
 #
-# 1) Determina el conjunto de variables predictoras que se utilizarán en el modelo
-#    XGBoost (vars_XGB), validando su coherencia con las variables presentes en la
-#    matriz μ y excluyendo explícitamente la variable objetivo.
+# Metodología:
+# - Se determina el conjunto de variables predictoras que participarán
+#   en el análisis.
+# - Se entrena un modelo global XGBoost utilizando dichas variables.
+# - Se generan las coaliciones de variables predictoras consideradas
+#   en el estudio.
+# - Se calculan los valores H(i,S) para todas las instancias y
+#   coaliciones.
+# - A partir de H(i,S) y del valor de referencia K se calculan los
+#   valores T(i,S).
 #
-# 2) Entrena un único modelo XGBoost global, fijo para todo el proceso, utilizando
-#    las variables seleccionadas y el tipo de modelo especificado
-#    (regresión o clasificación).
+# Interpretación:
+# - Este bloque coordina la ejecución completa del método.
+# - Integra la información contenida en μ(v|S), las coaliciones
+#   generadas y el modelo global XGBoost para obtener los resultados
+#   finales.
 #
-# 3) Genera la lista completa de subconjuntos no vacíos S de variables predictoras,
-#    hasta un tamaño máximo especificado, que representarán los distintos niveles
-#    de información conocida.
+# Resultado:
+# - Tabla H(i,S).
+# - Tabla T(i,S).
+# - Valor de referencia K.
+# - Coaliciones consideradas.
+# - Modelo global XGBoost utilizado en el análisis.
 #
-# 4) Calcula, para cada instancia i del dataset y para cada subconjunto S, los
-#    valores H(i,S) y T(i,S)=H(i,S)−K mediante la función
-#    calcular_H_T_para_Sets_matriz(), donde K es la predicción media global del
-#    modelo.
-#
-# 5) Permite opcionalmente ejecutar el cálculo en modo de depuración para
-#    inspeccionar en detalle el comportamiento de H(i,S) para una instancia y un
-#    conjunto S concretos, sin afectar al resultado final.
-#
-# La función devuelve las tablas completas de H(i,S) y T(i,S), el valor base K,
-# la lista de subconjuntos S considerados, las variables utilizadas en el modelo
-# y el objeto del modelo XGBoost global entrenado.
-###############################################################################
+# ============================================================================
 
 calcular_H_T_con_Mu <- function(df,
                                 matriz_mu,
@@ -1173,9 +1155,36 @@ calcular_H_T_con_Mu <- function(df,
     obj_global = obj_global
   )
 }
-###############################################################################
-# FUNCIÓN AUXILIAR: renombrar y reordenar columnas H y T (VERSIÓN CORRECTA)
-###############################################################################
+
+# ============================================================================
+# 11. RENOMBRADO Y REORDENACIÓN DE LAS TABLAS H(i,S) Y T(i,S)
+# ============================================================================
+#
+# Objetivo:
+# Estandarizar la nomenclatura y la organización de las tablas H(i,S) y
+# T(i,S) obtenidas durante el método.
+#
+# Metodología:
+# - Se transforman los nombres internos utilizados durante los cálculos
+#   a una notación metodológica más interpretable.
+# - La coalición vacía se representa mediante H() y T().
+# - Las restantes coaliciones se expresan mediante la notación H(S) y
+#   T(S), donde S identifica el conjunto de variables considerado.
+# - Las columnas se reorganizan para mantener una estructura homogénea
+#   y facilitar la interpretación de los resultados.
+#
+# Interpretación:
+# - Este paso no modifica los valores calculados.
+# - Únicamente adapta la presentación de las tablas para su análisis,
+#   visualización y exportación.
+#
+# Resultado:
+# - Tabla H(i,S) con nomenclatura estandarizada.
+# - Tabla T(i,S) con nomenclatura estandarizada.
+# - Reordenación consistente de las columnas de resultados.
+#
+# ============================================================================
+
 
 renombrar_HT <- function(H_tabla, T_tabla) {
   
@@ -1254,9 +1263,50 @@ renombrar_HT <- function(H_tabla, T_tabla) {
 
 
 
-###############################################################################
-# EJECUCIÓN CON BUCLE (REGRESIÓN Y CLASIFICACIÓN) + EXPORT DEBUG A TXT
-###############################################################################
+# ============================================================================
+# 12. EJECUCIÓN DEL MÉTODO Y EXPORTACIÓN DE RESULTADOS
+# ============================================================================
+#
+# Objetivo:
+# Ejecutar el método completo para los problemas de regresión y
+# clasificación, obtener las tablas H(i,S) y T(i,S), realizar
+# comprobaciones de depuración y exportar los resultados generados.
+#
+# Metodología:
+# - Se define la configuración de cada caso de estudio, incluyendo la
+#   base de datos, la matriz μ(v|S), la variable objetivo y el tipo
+#   de problema considerado.
+# - Para cada configuración se ejecuta el método completo mediante el
+#   procedimiento definido previamente.
+# - Se obtienen las tablas H(i,S), T(i,S) y el valor de referencia K.
+# - Opcionalmente se generan salidas de depuración para revisar el
+#   comportamiento del método en instancias y coaliciones específicas.
+# - Los resultados obtenidos se organizan y almacenan de forma
+#   independiente para cada caso analizado.
+#
+# Casos considerados:
+#
+# Regresión:
+# - Variable objetivo continua.
+#
+# Clasificación:
+# - Variable objetivo binaria.
+#
+# Interpretación:
+# - Este paso aplica el método completo a los conjuntos de datos
+#   considerados.
+# - Permite obtener los resultados finales necesarios para su análisis,
+#   comparación e interpretación.
+#
+# Resultado:
+# - Tablas H(i,S) para cada caso de estudio.
+# - Tablas T(i,S) para cada caso de estudio.
+# - Valor K asociado a cada análisis.
+# - Información de depuración para validación del procedimiento.
+# - Exportación de los resultados finales.
+#
+# ============================================================================
+
 
 # Paso 1: Definir la configuración de cada caso
 config_list <- list(
@@ -1375,61 +1425,85 @@ M4_Delta_xgb_log_stream<-T_log_2
 library(writexl)
 write_xlsx(
   x = M4_Pred_xgb_y_stream,
-  path = "C:/Users/danis/OneDrive/Escritorio/Phd/4.1. Escritura de Tesis/Real Case. Resultados/Datos V2/XGB_reg/M4_Pred_xgb_y_stream.xlsx"
+  path = "C:/Users/.../M4_Pred_xgb_y_stream.xlsx"
 )
 write_xlsx(
   x = M4_Delta_xgb_y_stream,
-  path = "C:/Users/danis/OneDrive/Escritorio/Phd/4.1. Escritura de Tesis/Real Case. Resultados/Datos V2/XGB_reg/M4_Delta_xgb_y_stream.xlsx"
+  path = "C:/Users/.../M4_Delta_xgb_y_stream.xlsx"
 )
 write_xlsx(
   x = M4_Pred_xgb_log_stream,
-  path = "C:/Users/danis/OneDrive/Escritorio/Phd/4.1. Escritura de Tesis/Real Case. Resultados/Datos V2/XGB_log/M4_Pred_xgb_log_stream.xlsx"
+  path = "C:/Users/.../M4_Pred_xgb_log_stream.xlsx"
 )
 write_xlsx(
   x = M4_Delta_xgb_log_stream,
-  path = "C:/Users/danis/OneDrive/Escritorio/Phd/4.1. Escritura de Tesis/Real Case. Resultados/Datos V2/XGB_log/M4_Delta_xgb_log_stream.xlsx"
+  path = "C:/Users/.../M4_Delta_xgb_log_stream.xlsx"
 )
 
 
-###################################################################################
-###################################################################################
+
 
 ###############################################################################
 ########### GLM   - LM   ######################################################
 ###############################################################################
-
-############################################################
-# B.clásico.1 – MODELO GLOBAL (lm / glm) Y K = media(pred)
-############################################################
-
-###############################################################################
-# ajustar_modelo_global_Mu_clasico() entrena un único modelo global clásico
-# (regresión lineal o regresión logística) a partir del dataset proporcionado y
-# calcula el valor base K como la media de las predicciones del modelo.
+# ============================================================================
+# 13. ENTRENAMIENTO DEL MODELO GLOBAL CLÁSICO
+# ============================================================================
 #
-# Dado un conjunto de variables predictoras vars_pred y una variable objetivo
-# target, la función construye una fórmula del tipo:
+# Objetivo:
+# Construir un único modelo global clásico utilizando toda la información
+# disponible de la base de datos para su utilización posterior en el
+# cálculo de H(i,S).
 #
-#     target ~ v1 + v2 + ... + vp
+# Metodología:
+# - Se selecciona una variable objetivo y un conjunto de variables
+#   predictoras.
+# - Se construye automáticamente una fórmula que incorpora todos los
+#   predictores considerados.
+# - Se ajusta un único modelo global utilizando la totalidad de las
+#   observaciones disponibles.
+# - El modelo se entrena una sola vez y permanece fijo durante todo
+#   el procedimiento posterior.
 #
-# y ajusta:
-#   - un modelo lineal (lm) en el caso de regresión, o
-#   - un modelo logístico binomial (glm con enlace logit) en el caso de
-#     clasificación binaria.
+# Casos considerados:
 #
-# En el caso de clasificación, la función valida y normaliza el formato del
-# target para garantizar que sea compatible con un modelo binomial, aceptando
-# variables lógicas, factores de dos niveles o variables numéricas binarias.
+# Regresión:
+# - Se ajusta un modelo lineal clásico.
 #
+# Clasificación:
+# - Se ajusta un modelo logístico binario.
+# - La variable objetivo se valida y adapta al formato requerido por
+#   el modelo cuando es necesario.
 #
-# como la media global de dichas predicciones, que corresponde al caso del
-# conjunto vacío S = ∅ (modelo sin información condicionada).
+# Interpretación:
+# - El modelo obtenido representa la función predictiva global utilizada
+#   durante todo el método.
+# - Todas las evaluaciones posteriores utilizan exactamente el mismo
+#   modelo entrenado.
 #
-# La función devuelve el modelo entrenado, el vector de predicciones, el valor
-# base K, el tipo de modelo utilizado, la variable objetivo y el conjunto de
-# predictores empleados. Este modelo global se utiliza posteriormente como
-# referencia fija para cálculos dependientes de μ, H(i,S) y T(i,S).
-###############################################################################
+# Relación con la matriz μ:
+# - La matriz μ(v|S) no interviene en esta fase.
+# - No se realizan cálculos asociados a coaliciones.
+# - No se generan escenarios contrafactuales.
+#
+# Predicciones globales:
+# - Una vez ajustado el modelo se calculan las predicciones asociadas a
+#   todas las observaciones de la base de datos.
+#
+# Validación:
+# - Se verifica la existencia de la variable objetivo.
+# - Se verifica la existencia de las variables predictoras.
+# - Se comprueba que el conjunto de predictores no esté vacío.
+# - Se valida la compatibilidad de la variable objetivo con el tipo
+#   de modelo seleccionado.
+#
+# Resultado:
+# - Modelo global clásico entrenado.
+# - Predicciones asociadas al modelo.
+# - Variable objetivo considerada.
+# - Conjunto de predictores utilizado.
+#
+# ============================================================================
 
 ajustar_modelo_global_Mu_clasico <- function(df,
                                              target,
@@ -1533,66 +1607,64 @@ ajustar_modelo_global_Mu_clasico <- function(df,
   )
 }
 
-###############################################################################
-# ajustar_modelo_global_Mu_clasico() entrena un único modelo clásico global 
-# (lm o glm binomial) usando los predictores especificados, valida y normaliza (factor)
-# el formato del target, calcula las predicciones globales y define K como la media de
-# dichas predicciones. Este modelo global y su baseline se utilizan posteriormente como 
-# referencia fija para el cálculo de H(i,S) y T(i,S), sin reentrenar modelos por subconjunto.
-###############################################################################
 
 
-############################################################
-# B.clásico.2 – Obtener μ_v(S) desde matriz_mu
-############################################################
-
-################################################################################
-# get_mu_matriz() devuelve el valor μ(v | S) a partir de una matriz μ previamente
-# calculada.
+# ============================================================================
+# 14. CÁLCULO DE H(i,S) MEDIANTE μ(v|S) Y UN MODELO GLOBAL CLÁSICO
+# ============================================================================
 #
-# Dado un conjunto de variables conocidas S y una variable objetivo v, la función
-# construye una representación canónica del conjunto S y accede a la celda
-# correspondiente de la matriz μ, donde las filas representan coaliciones S y las
-# columnas representan variables v.
+# Objetivo:
+# Calcular el valor H(i,S) asociado a una instancia i y a una coalición S
+# utilizando un modelo global clásico y los valores μ(v|S)
+# previamente disponibles.
 #
-# El caso del conjunto vacío S = ∅ se representa mediante la clave "empty".
-# La función valida que la variable v exista en la matriz μ y gestiona de forma
-# segura situaciones en las que la coalición S no esté presente o el valor μ sea
-# NA, devolviendo en dichos casos un valor nulo.
+# Metodología:
+# - Se fija la coalición S utilizando los valores observados en la
+#   instancia i.
+# - Se identifican las variables no incluidas en S.
+# - Para cada una de dichas variables se recupera el valor μ(v|S)
+#   correspondiente.
+# - Se generan todos los escenarios posibles de acierto y fallo para
+#   las variables no incluidas en S.
+# - En cada escenario:
+#     · Las variables pertenecientes a S permanecen fijadas a los valores
+#       observados en la instancia i.
+#     · Las variables con acierto se fijan también al valor observado
+#       en la instancia i.
+#     · Las variables con fallo conservan la variabilidad original de
+#       la base de datos.
+# - Para cada escenario se construye la correspondiente submuestra
+#   contrafactual.
+# - Se obtienen las predicciones del modelo global para todas las filas
+#   de la submuestra.
+# - Se calcula la media de dichas predicciones.
 #
-# El valor devuelto μ(v | S) se utiliza posteriormente como peso probabilístico en
-# cálculos contrafactuales y de integración, sin intervenir directamente en el
-# ajuste del modelo.
-################################################################################
-
-################################################################################
-# get_mu_matriz() devuelve el valor μ(v∣S) desde una matriz μ, construyendo una
-# representación canónica del conjunto S, validando entradas 
-# de forma robusta y segura para su uso en cálculos contrafactuales.
-################################################################################
-
-
-############################################################
-# B.clásico.3 – H(i,S) con Mu y modelo clásico (lm / glm)
-############################################################
-
-################################################################################
-# H_instancia_S_matriz_clasico() calcula H(i,S) para una instancia i y un conjunto
-# de variables conocidas S utilizando un modelo global clásico (lm o glm) fijo.
+# Ponderación:
+# - A cada escenario se le asigna un peso construido a partir de los
+#   valores μ(v|S) de las variables no incluidas en S.
+# - Los pesos asociados a todos los escenarios deben sumar 1.
 #
-# La función define U como el conjunto de variables no conocidas, genera todos los
-# escenarios posibles de fijación y no fijación sobre U y, para cada escenario,
-# construye un dataset contrafactual en el que las variables de S (y aquellas de U
-# con acierto) se fijan al valor observado en la instancia i.
+# Cálculo de H(i,S):
+# - H(i,S) se obtiene como la suma ponderada de las medias de predicción
+#   calculadas para todos los escenarios considerados.
 #
-# Para cada escenario s, se obtiene la predicción media m_s del modelo clásico y se
-# calcula un peso w_s a partir de los valores μ(v | S). El valor final H(i,S) se
-# obtiene como la suma ponderada:
+# Caso particular:
+# - Cuando S contiene todas las variables predictoras, todas las
+#   variables permanecen fijadas a los valores observados en la
+#   instancia i.
+# - En este caso H(i,S) se obtiene como la media de las predicciones
+#   generadas por el modelo global sobre la submuestra completamente
+#   fijada.
 #
-#     H(i,S) = Σ_s w_s · m_s
+# Validación:
+# - Se comprueba que la instancia solicitada existe en la base de datos.
+# - Se verifica la obtención de todos los valores μ(v|S) necesarios.
+# - Se comprueba que la suma de los pesos de los escenarios sea igual a 1.
 #
-# donde los pesos w_s verifican Σ_s w_s = 1.
-################################################################################
+# Resultado:
+# - Valor H(i,S) asociado a la instancia i y a la coalición S.
+#
+# ============================================================================
 
 
 H_instancia_S_matriz_clasico <- function(df,
@@ -1744,80 +1816,59 @@ H_instancia_S_matriz_clasico <- function(df,
   H_val
 }
 
-################################################################################
-# H_instancia_S_matriz_clasico() calcula H(i,S) para una instancia i y un conjunto 
-# de variables conocidas SSS usando un modelo global clásico (lm/glm) fijo.
-# Define U como las variables no conocidas, genera los escenarios de fijación/no fijación de U,
-# construye en cada escenario un dataset contrafactual donde S (y parte de U) se fija al valor de i,
-# predice con el modelo global y toma la media de predicciones ms. Cada escenario se pondera
-# con ws=μv(S) o 1−μv(S) y se agrega devolviendo H(i,S)=mean(ws ms)H(i,S)
-################################################################################
 
-############################################################
-# B.clásico.4 – Generar lista de coaliciones S de predictores
-############################################################
-###############################################################################
-# generar_S_list() genera todas las coaliciones no vacías de un conjunto de
-# variables predictoras, hasta un tamaño máximo opcional.
+# ============================================================================
+# 15. CÁLCULO DE H(i,S) Y T(i,S) PARA TODAS LAS INSTANCIAS Y COALICIONES
+# ============================================================================
 #
-# Dado un conjunto de predictores vars_pred = {v1, v2, ..., vp}, la función
-# construye explícitamente todos los subconjuntos S ⊆ vars_pred tales que
-# 1 ≤ |S| ≤ max_size, utilizando combinatoria directa.
+# Objetivo:
+# Calcular los valores H(i,S) y T(i,S) para todas las instancias de la
+# base de datos y para todas las coaliciones de variables consideradas.
 #
-# Cada subconjunto S representa un conjunto de variables conocidas que se
-# utilizará posteriormente para calcular H(i,S) y T(i,S) en el método clásico.
+# Metodología:
+# - Se parte de una lista de coaliciones S previamente generada.
+# - Para cada coalición S se calcula H(i,S) para todas las instancias
+#   de la base de datos.
+# - El cálculo de H(i,S) se realiza utilizando el modelo global clásico
+#   y los valores μ(v|S) previamente disponibles.
 #
-# El conjunto vacío no se incluye, ya que el caso S = ∅ se trata de forma
-# separada mediante el valor base K (predicción media global del modelo).
-###############################################################################
-
-
-###############################################################################
-# generar_S_list() genera todas las coaliciones no vacías de las variables predictoras, 
-# hasta un tamaño máximo opcional, para definir los conjuntos S sobre los que se calcularán
-# H(i,S) y T(i,S)
-##############################################################################
-
-############################################################
-# B.clásico.5 – H(i,S) y T(i,S) para todo i y todos los S
-############################################################
-###############################################################################
-# calcular_H_T_para_Sets_matriz_clasico() calcula los valores H(i,S) y T(i,S) para
-# todas las instancias i del dataset y para todos los subconjuntos de variables S
-# proporcionados en S_list, utilizando un único modelo clásico global (lm o glm).
+# Cálculo del valor de referencia:
+# - Se calcula el caso asociado a la coalición vacía S = ∅.
+# - Este valor constituye la referencia común utilizada en todos los
+#   cálculos posteriores.
+# - El valor obtenido se denomina K.
 #
-# Para cada conjunto S ∈ S_list, la función:
+# Cálculo de T(i,S):
+# - Una vez obtenido H(i,S), se calcula:
 #
-# 1) Evalúa H(i,S) para cada instancia i mediante la función
-#    H_instancia_S_matriz_clasico(), que integra el modelo global sobre todos los
-#    escenarios de fijación y no fijación definidos por las variables no conocidas
-#    U = X \ S, ponderados por μ(v | S).
+#     T(i,S) = H(i,S) - K
 #
-# 2) Calcula la cantidad T(i,S) como:
+# Interpretación:
+# - H(i,S) representa el valor obtenido para la instancia i cuando la
+#   información disponible viene determinada por la coalición S.
+# - T(i,S) representa la diferencia respecto al escenario de referencia K.
 #
-#        T(i,S) = H(i,S) − K
+# Incorporación del conjunto vacío:
+# - El conjunto vacío no forma parte de la lista inicial de coaliciones.
+# - Una vez finalizados los cálculos, se incorpora explícitamente:
 #
-#    donde K es la predicción media global del modelo, equivalente al caso del
-#    conjunto vacío S = ∅.
+#     H(i,∅) = K
 #
-# Los resultados se organizan en dos tablas:
+#     T(i,∅) = 0
 #
-# - H_tabla: contiene, para cada instancia i, los valores H(i,S) asociados a cada
-#   subconjunto S, así como el valor base K.
+# para todas las instancias.
 #
-# - T_tabla: contiene, para cada instancia i, los valores T(i,S), que representan
-#   la contribución marginal de conocer el conjunto S con respecto al nivel base K.
+# Validación:
+# - Se verifica la correcta obtención del valor K.
+# - Se comprueba la coherencia de los cálculos realizados para todas
+#   las instancias y coaliciones.
 #
-# El conjunto vacío no se incluye en S_list y se añade explícitamente al final,
-# asignando H(i, ∅) = K y T(i, ∅) = 0 para todas las instancias.
+# Resultado:
+# - Tabla H(i,S) para todas las instancias y coaliciones.
+# - Tabla T(i,S) para todas las instancias y coaliciones.
+# - Valor de referencia K asociado al conjunto vacío.
 #
-# La función permite opcionalmente activar un modo de depuración para inspeccionar
-# en detalle el cálculo de H(i,S) para una instancia y un subconjunto S concretos,
-# sin afectar al resultado final.
-###############################################################################
-# ============================================================
-# K = H(i, ∅) usando operador H clásico con μ
-# ============================================================
+# ============================================================================
 
 calcular_K_desde_H_empty_matriz_clasico <- function(df,
                                                     obj_global,
@@ -1914,42 +1965,36 @@ calcular_H_T_para_Sets_matriz_clasico <- function(df,
   )
 }
 
-################################################################################
-# calcular_H_T_para_Sets_matriz_clasico() calcula H(i,S) y T(i,S) para todas las instancias 
-# y todos los subconjuntos de predictores SSS, aplicando un único modelo clásico global 
-# (lm/glm) a contrafactuales construidos por fijación de variables y ponderados mediante μ(v|S).
-# Devuelve las tablas completas de H y T, incluyendo el caso del conjunto vacío como referencia.
-################################################################################
 
 
-############################################################
-# B.clásico.6 – Debugs
-############################################################
-###############################################################################
-# Este bloque define un conjunto de funciones auxiliares de depuración para el
-# método clásico (lm / glm), cuyo objetivo es inspeccionar y validar en detalle
-# el cálculo de H(i,S) realizado por la función H_instancia_S_matriz_clasico().
+
+# ============================================================================
+# 16. FUNCIONES DE DEPURACIÓN Y VALIDACIÓN
+# ============================================================================
 #
-# Las funciones permiten ejecutar el cálculo de H(i,S) en modo de depuración para:
+# Objetivo:
+# Facilitar la inspección detallada del cálculo de H(i,S) para instancias
+# y coaliciones específicas en el modelo clásico.
 #
-# - Una instancia concreta y todos los subconjuntos S de predictores.
-# - Varias instancias y todos los subconjuntos S.
-# - Una combinación específica de instancia i y subconjunto S.
+# Metodología:
+# - Permiten ejecutar el cálculo de H(i,S) en modo de depuración.
+# - Muestran los valores μ(v|S) utilizados durante el cálculo.
+# - Muestran los escenarios generados, los pesos asociados y las
+#   predicciones obtenidas para cada escenario.
 #
-# Durante la ejecución en modo debug, se muestran de forma explícita los pasos
-# internos del cálculo, incluyendo:
-#   - El conjunto de variables conocidas S y no conocidas U.
-#   - Los valores μ(v | S) utilizados.
-#   - Los escenarios de acierto y fallo generados sobre U.
-#   - Las tablas contrafactuales construidas para cada escenario.
-#   - Las predicciones medias m_s y los pesos w_s asociados.
+# Interpretación:
+# - Estas funciones permiten verificar y comprender paso a paso el
+#   cálculo de H(i,S).
+# - Su finalidad es exclusivamente diagnóstica.
+# - No modifican resultados ni intervienen en los cálculos principales
+#   del método.
 #
-# Estas funciones no modifican resultados, no devuelven nuevos valores analíticos
-# ni forman parte del pipeline principal de cálculo. Su finalidad es
-# exclusivamente diagnóstica y explicativa, permitiendo verificar paso a paso
-# el comportamiento del método clásico y asegurar la coherencia entre teoría,
-# código y resultados numéricos.
-###############################################################################
+# Resultado:
+# - Información detallada para la validación y revisión del cálculo
+#   de H(i,S).
+#
+# ============================================================================
+
 
 debug_instancias_todos_S_matriz_clasico <- function(df,
                                                     obj_global,
@@ -2021,41 +2066,45 @@ debug_instancia_S_matriz_clasico <- function(df,
   ))
 }
 
-############################################################
-# B.clásico.7 – ENVOLTORIO PRINCIPAL (lm / glm + μ)
-############################################################
-
-################################################################################
-# calcular_H_T_con_Mu_clasico() actúa como envoltorio principal del método clásico,
-# coordinando el cálculo de H(i,S) y T(i,S) a partir de una matriz μ previamente
-# calculada y un único modelo global clásico (lm o glm).
+# ============================================================================
+# 17. EJECUCIÓN DEL MÉTODO
+# ============================================================================
 #
-# La función realiza las siguientes operaciones:
+# Objetivo:
+# Ejecutar de forma conjunta todas las fases del método para obtener los
+# valores H(i,S) y T(i,S) a partir de una matriz μ(v|S) previamente
+# calculada.
 #
-# 1) Determina el conjunto de variables predictoras que se utilizarán en el modelo
-#    clásico, validando su coherencia con las variables presentes en la matriz μ y
-#    excluyendo explícitamente la variable objetivo.
+# Metodología:
+# - Se determina el conjunto de variables predictoras que participarán
+#   en el análisis.
+# - Se ajusta un modelo global clásico utilizando dichas variables.
+# - Se generan las coaliciones de variables predictoras consideradas
+#   en el estudio.
+# - Se calculan los valores H(i,S) para todas las instancias y
+#   coaliciones.
+# - A partir de H(i,S) y del valor de referencia K se calculan los
+#   valores T(i,S).
 #
-# 2) Ajusta un único modelo global clásico (regresión lineal o regresión logística,
-#    según el tipo especificado), que se mantiene fijo durante todo el proceso.
+# Depuración opcional:
+# - El procedimiento permite ejecutar funciones de depuración para
+#   inspeccionar cálculos específicos sin modificar los resultados
+#   finales obtenidos.
 #
-# 3) Genera la lista completa de subconjuntos no vacíos S de las variables
-#    predictoras, hasta un tamaño máximo opcional, que representan los distintos
-#    niveles de información conocida.
+# Interpretación:
+# - Este bloque coordina la ejecución completa del método.
+# - Integra la información contenida en μ(v|S), las coaliciones
+#   generadas y el modelo global clásico para obtener los resultados
+#   finales.
 #
-# 4) Calcula, para cada instancia i del dataset y para cada subconjunto S, los
-#    valores H(i,S) y T(i,S)=H(i,S)−K mediante la función
-#    calcular_H_T_para_Sets_matriz_clasico(), donde K es la predicción media global
-#    del modelo clásico.
+# Resultado:
+# - Tabla H(i,S).
+# - Tabla T(i,S).
+# - Valor de referencia K.
+# - Coaliciones consideradas.
+# - Modelo global utilizado en el análisis.
 #
-# 5) Permite opcionalmente ejecutar el cálculo en modo de depuración para inspeccionar
-#    en detalle el comportamiento de H(i,S) para una instancia y un conjunto S
-#    concretos, sin afectar al resultado final.
-#
-# La función devuelve las tablas completas de H(i,S) y T(i,S), el valor base K,
-# la lista de subconjuntos S considerados, las variables utilizadas como predictores
-# y el objeto del modelo clásico global entrenado.
-################################################################################
+# ============================================================================
 
 calcular_H_T_con_Mu_clasico <- function(df,
                                         matriz_mu,
@@ -2133,18 +2182,54 @@ calcular_H_T_con_Mu_clasico <- function(df,
   )
 }
 
-################################################################################
-# calcular_H_T_con_Mu_clasico() entrena un único modelo clásico global (lm/glm) y, 
-# para cada instancia y cada subconjunto de variables S, calcula las predicciones H(i,S)
-# aplicando ese modelo a contrafactuales donde S se fija al valor observado y el 
-# resto de variables se pondera mediante μ(v|S). A partir de ello obtiene T(i,S)=H(i,S)−K
-# , donde K es la media global de predicciones.
-################################################################################
 
 
-############################################################
-# EJECUCIÓN CON BUCLE – REGRESIÓN Y CLASIFICACIÓN (LM / GLM)
-############################################################
+# ============================================================================
+# 18. EJECUCIÓN DEL MÉTODO Y EXPORTACIÓN DE RESULTADOS
+# ============================================================================
+#
+# Objetivo:
+# Ejecutar el método completo para los problemas de regresión y
+# clasificación, obtener las tablas H(i,S) y T(i,S), realizar
+# comprobaciones de depuración y exportar los resultados generados.
+#
+# Metodología:
+# - Se define la configuración de cada caso de estudio, incluyendo la
+#   base de datos, la matriz μ(v|S), la variable objetivo y el tipo
+#   de problema considerado.
+# - Para cada configuración se ejecuta el método completo mediante el
+#   procedimiento definido previamente.
+# - Se obtienen las tablas H(i,S), T(i,S) y el valor de referencia K.
+# - Opcionalmente se generan salidas de depuración para revisar el
+#   comportamiento del método en instancias y coaliciones específicas.
+# - Los resultados obtenidos se organizan y almacenan de forma
+#   independiente para cada caso analizado.
+#
+# Casos considerados:
+#
+# Regresión:
+# - Variable objetivo continua.
+# - Modelo lineal clásico.
+#
+# Clasificación:
+# - Variable objetivo binaria.
+# - Modelo logístico binario.
+#
+# Interpretación:
+# - Este paso aplica el método completo a los conjuntos de datos
+#   considerados.
+# - Permite obtener los resultados finales necesarios para su análisis,
+#   comparación e interpretación.
+#
+# Resultado:
+# - Tablas H(i,S) para cada caso de estudio.
+# - Tablas T(i,S) para cada caso de estudio.
+# - Valor K asociado a cada análisis.
+# - Información de depuración para validación del procedimiento.
+# - Exportación de los resultados finales.
+#
+# ============================================================================
+
 
 # Configuración de los casos clásicos
 config_list_clasico <- list(
@@ -2262,42 +2347,25 @@ M4_Delta_glm_yb_stream<-T_log_glm_2
 library(writexl)
 
 # Exportamos el data.frame a un archivo Excel
-write_xlsx(
-  x = M1_Delta_lm_y_stream,
-  path = "C:/Users/danis/OneDrive/Escritorio/Phd/4.1. Escritura de Tesis/Real Case. Resultados/Datos V2/lm/M1_Delta_lm_y_stream.xlsx"
-)
-write_xlsx(
-  x = M1_Pred_lm_y_stream,
-  path = "C:/Users/danis/OneDrive/Escritorio/Phd/4.1. Escritura de Tesis/Real Case. Resultados/Datos V2/lm/M1_Pred_lm_y_stream.xlsx"
-)
+
 write_xlsx(
   x = M4_Delta_lm_y_stream,
-  path = "C:/Users/danis/OneDrive/Escritorio/Phd/4.1. Escritura de Tesis/Real Case. Resultados/Datos V2/lm/M4_Delta_lm_y_stream.xlsx"
+  path = "C:/Users/.../M4_Delta_lm_y_stream.xlsx"
 )
 write_xlsx(
   x = M4_Pred_lm_y_stream,
-  path = "C:/Users/danis/OneDrive/Escritorio/Phd/4.1. Escritura de Tesis/Real Case. Resultados/Datos V2/lm/M4_Pred_lm_y_stream.xlsx"
+  path = "C:/Users/.../M4_Pred_lm_y_stream.xlsx"
 )
-write_xlsx(
-  x = M1_Delta_glm_yb_stream,
-  path = "C:/Users/danis/OneDrive/Escritorio/Phd/4.1. Escritura de Tesis/Real Case. Resultados/Datos V2/glm/M1_Delta_glm_yb_stream.xlsx"
-)
-write_xlsx(
-  x = M1_Pred_glm_yb_stream,
-  path = "C:/Users/danis/OneDrive/Escritorio/Phd/4.1. Escritura de Tesis/Real Case. Resultados/Datos V2/glm/M1_Pred_glm_yb_stream.xlsx"
-)
+
 write_xlsx(
   x = M4_Delta_glm_yb_stream,
-  path = "C:/Users/danis/OneDrive/Escritorio/Phd/4.1. Escritura de Tesis/Real Case. Resultados/Datos V2/glm/M4_Delta_glm_yb_stream.xlsx"
+  path = "C:/Users/.../M4_Delta_glm_yb_stream.xlsx"
 )
 write_xlsx(
   x = M4_Pred_glm_yb_stream,
-  path = "C:/Users/danis/OneDrive/Escritorio/Phd/4.1. Escritura de Tesis/Real Case. Resultados/Datos V2/glm/M4_Pred_glm_yb_stream.xlsx"
+  path = "C:/Users/.../M4_Pred_glm_yb_stream.xlsx"
 )
-write_xlsx(
-  x = matriz_mu,
-  path = "C:/Users/danis/OneDrive/Escritorio/Phd/4.1. Escritura de Tesis/Real Case. Resultados/Datos V2/Mu.xlsx"
-)
+
 
 ############################################################
 # COMPARATIVA H_y_lm vs H_y_lm_2 y T_y_lm vs T_y_lm_2 (REGRESIÓN, CLÁSICO)

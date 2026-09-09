@@ -1,15 +1,16 @@
 
 ################################################################################
-# SCRIPT COMPLETO — con el AJUSTE “μ MEJOR” (monótono)
+# SCRIPT COMPLETO “μ” 
 ################################################################################
 
 
-# ============================================================
-# FUNCIÓN: calcular_ECM_vacio
-# ============================================================
-# OBJETIVO:
-# Calcular el Error Cuadrático Medio (ECM) de un modelo vacío
+# ============================================================================
+# 1. CÁLCULO DEL ERROR CUADRÁTICO MEDIO DEL VACIO
+# ============================================================================
+#
+# Objetivo:
 
+# Calcular el Error Cuadrático Medio al predecir vj de manera aleatoria (ECM) 
 
 
 calcular_ECM_vacio <- function(y){
@@ -17,26 +18,23 @@ calcular_ECM_vacio <- function(y){
   mean((y - mean(y, na.rm = TRUE))^2, na.rm = TRUE)
 }
 
-# ============================================================
-# FUNCIÓN: calcular_Mu
-# ============================================================
-# OBJETIVO:
-# Calcular la métrica μ (mu), que mide la mejora de un modelo
-# respecto a un modelo vacío.
+
+# ============================================================================
+# 2. CÁLCULO DE LA MEDIDA DIFUSA μ
+# ============================================================================
 #
-# INTERPRETACIÓN DE μ:
-# - μ = 0  → el modelo es igual de malo que el modelo vacío
-# - μ = 1  → el modelo es perfecto (sin error)
-# - 0 < μ < 1 → mejora parcial respecto al modelo vacío
-#
-# FÓRMULA:
+# Objetivo:
+# Calcular la métrica μ (mu), que mide la capacidad predictiva de las variables 
+# en S respecto a la aleatoridad (vacío).
+
+# Fórmula:
 # μ = (ECM_Vacio - ECM_S) / ECM_Vacio
 #
-# DONDE:
-# - ECM_Vacio = error del modelo vacío (baseline)
-# - ECM_S     = error del modelo que queremos evaluar
+# Donde:
+# - ECM_Vacio = error al predecir vj de manera aleatoria (baseline)
+# - ECM_S     = error al predecir vj con las variables de S
 #
-# ============================================================
+# ============================================================================
 
 
 calcular_Mu <- function(ECM_Vacio, ECM_S, tol = 1e-12){
@@ -44,7 +42,7 @@ calcular_Mu <- function(ECM_Vacio, ECM_S, tol = 1e-12){
   if (is.na(ECM_Vacio) || ECM_Vacio == 0) return(NA_real_)  # Evita división por 0 o NA
   if (is.na(ECM_S)) return(NA_real_)
   
-  raw <- (ECM_Vacio - ECM_S) / ECM_Vacio  # Mejora relativa frente al vacío
+  raw <- (ECM_Vacio - ECM_S) / ECM_Vacio  # μ
   
   if (is.na(raw)) return(NA_real_)
   if (abs(raw) < tol) raw <- 0            # Limpieza de ruido flotante alrededor de 0
@@ -52,28 +50,29 @@ calcular_Mu <- function(ECM_Vacio, ECM_S, tol = 1e-12){
   max(0, min(1, raw))                  
 }
 
-# ============================================================
-# FUNCIÓN: es_binaria_generica
-# ============================================================
-# OBJETIVO:
+# ============================================================================
+# 3. DETECCIÓN DE VARIABLES BINARIAS
+# ============================================================================
+#
+# Objetivo:
 # Detectar si una variable es binaria (tiene solo dos valores posibles).
 #
-# TIPOS SOPORTADOS:
+# Tipologías identificadas:
 # - logical (TRUE/FALSE)
 # - factor
 # - character
 # - numeric
 #
-# CRITERIO:
-# - TRUE si tiene exactamente 2 valores distintos
-# - En numéricos también se acepta el caso típico 0/1
-# - FALSE en cualquier otro caso
+# Criterio:
+# - TRUE si tiene exactamente 2 valores distintos.
+# - En numéricos también trata el caso 0/1.
+# - FALSE en cualquier otro caso.
 #
-# ============================================================
+# ============================================================================
 
 
 es_binaria_generica <- function(x){
-  # Detecta si x es binaria, soportando logical / factor / character / numeric.
+
   vals <- x[!is.na(x)]
   if (length(vals) == 0) return(FALSE)
   if (is.logical(vals)) return(TRUE)
@@ -85,28 +84,28 @@ es_binaria_generica <- function(x){
   FALSE
 }
 
-# ============================================================
-# FUNCIÓN: normalizar_binaria
-# ============================================================
-# OBJETIVO:
+# ============================================================================
+# 4. NORMALIZACIÓN DE VARIABLES BINARIAS
+# ============================================================================
+#
+# Objetivo:
 # Convertir una variable binaria a formato numérico 0/1.
 #
-# TIPOS SOPORTADOS:
+# Tipologías identificadas:
 # - logical    → FALSE = 0, TRUE = 1
 # - factor     → se ordenan los niveles y el segundo es 1
 # - character  → igual que factor
 # - numeric    → si ya es 0/1 se mantiene; si no, el mayor valor será 1
 #
-# CRITERIO:
-# - Siempre devuelve un vector numérico con valores 0 y 1
+# Criterio:
+# - Siempre devuelve un vector numérico con valores 0 y 1.
 # - En variables con 2 categorías:
 #     menor → 0
 #     mayor → 1
+# - Si la variable no es binaria, lanza error para revisar precodificación.
 #
-# NOTAS:
-# - Los NA se mantienen
-# - Si la variable no es binaria, lanza error
-# ============================================================
+# ============================================================================
+
 
 
 normalizar_binaria <- function(x){
@@ -130,30 +129,28 @@ normalizar_binaria <- function(x){
   stop("normalizar_binaria: no es binaria")
 }
 
-# ============================================================
-# FUNCIÓN: construir_factor_ordinal
-# ============================================================
-# OBJETIVO:
-# Convertir una variable en un factor ordenado (ordered factor)
-# asegurando un orden consistente de los niveles.
+# ============================================================================
+# 5. CONSTRUCCIÓN DE FACTORES ORDINALES
+# ============================================================================
 #
-# COMPORTAMIENTO:
-# - Caso especial "Risk_BP": aplica un orden predefinido
-# - Si la variable ya es ordered, se respeta tal cual
-# - En otros casos, crea el orden según la primera aparición de valores
+# Objetivo:
+# Convertir una variable en un factor ordenado asegurando un orden consistente de los niveles.
 #
-# INPUT:
-# - x0: vector de datos
-# - var_name: nombre de la variable (para aplicar reglas específicas)
+# Comportamiento:
+# - Caso "Risk_BP": aplica un orden predefinido para asegurar el tratamiento correcto.
+# - En el caso de tener que aumentar o disminuir las categorías se especifican aquí
+# - Si la variable ya es ordered, se respeta tal cual.
+# - En otros casos, crea el orden según la primera aparición de valores.
 #
-# OUTPUT:
-# - Factor ordenado (ordered = TRUE)
+# Input:
+# - x0: vector de datos.
+# - var_name: nombre de la variable.
 #
-# NOTAS:
-# - Mantiene coherencia en pipelines donde el orden es importante
-# - Evita problemas al entrenar modelos con variables ordinales
-# ============================================================
-
+# Output:
+# - Factor ordenado (ordered = TRUE).
+#
+#
+# ============================================================================
 
 construir_factor_ordinal <- function(x0, var_name){
 
@@ -166,56 +163,71 @@ construir_factor_ordinal <- function(x0, var_name){
 }
 
 
-# ============================================================
-# FUNCIÓN: preprocesar_X_num_card_ord
-# ============================================================
-# OBJETIVO:
-# Preprocesar variables explicativas (X) según su tipo para
-# dejarlas listas para modelado.
+# ============================================================================
+# 6. PREPROCESAMIENTO DE VARIABLES EXPLICATIVAS
+# ============================================================================
 #
-# TRANSFORMACIONES:
-# - Numéricas:
-#     → Conversión a numeric
+# Objetivo:
+# Preprocesamiento de las variables y creación de variables dummy.
 #
-# - Cardinales (nominales):
-#     → Conversión a factor
-#     → Creación de variables dummy (one-hot encoding completo)
-#     → Formato: nombreVariable_nivel
+# Tratamiento aplicado:
 #
-# - Ordinales:
-#     → Conversión a factor ordenado (ordered)
-#     → Creación de dummies acumulativas (tipo umbral ≥ nivel)
-#     → Se generan k-1 variables (evita colinealidad)
+# Variables numéricas:
+# - Se convierten a formato numérico.
 #
-# INPUT:
-# - data: data.frame con los datos originales
-# - vars_numeric: vector con nombres de variables numéricas
-# - vars_cardinal: vector con variables categóricas nominales
-# - vars_ordinal: vector con variables categóricas ordinales
+# Variables categóricas (sin orden):
+# - Se convierten a factor.
+# - Se generan variables dummy (0/1), una por cada categoría existente.
 #
-# OUTPUT:
-# - data.frame transformado con nuevas variables (dummies)
+# Ejemplo interpretación:
+# Race = 1, 2, 3
 #
-# NOTAS:
-# - Mantiene las variables originales
-# - Ignora variables no presentes en el dataset
-# - Requiere función construir_factor_ordinal()
-# ============================================================
-
+# Se generan:
+# Race_1
+# Race_2
+# Race_3
+#
+# Si la variable tiene k categorías:
+# - Se generan k variables dummy, una por categoría.
+#
+# Variables ordinales (con orden):
+# - Se convierten a factor ordenado.
+# - Se respeta el orden de las categorías.
+# - Se generan variables dummy acumulativas (0/1).
+#
+# Ejemplo interpretación:
+# Risk_BP = Optima, Normal, Elevada, Hipertension_1, Hipertension_2
+#
+# Se generan:
+# Risk_BP_Normal
+# Risk_BP_Elevada
+# Risk_BP_Hipertension_1
+# Risk_BP_Hipertension_2
+#
+# Interpretación:
+# - Risk_BP_Elevada = 1 indica que el nivel es Elevada o superior.
+#
+# Si la variable tiene k categorías:
+# - Se generan k-1 variables dummy acumulativas, una menos que k, la inferior.
+#
+# Resultado:
+# - Dataset preprocesado.
+#
+# ============================================================================
 
 preprocesar_X_num_card_ord <- function(data,
                                        vars_numeric,
                                        vars_cardinal,
                                        vars_ordinal){
   
-  df <- data  # Copia de trabajo
+  df <- data  
   
-  ## 1) Numéricas: forzamos a numeric para evitar factores/char
+  ## 1) Numéricas:
   for (v in vars_numeric){
     if (v %in% names(df)) df[[v]] <- as.numeric(df[[v]])
   }
   
-  ## 2) Cardinales (nominales): factor + one-hot completo
+  ## 2) Cardinales (nominales)
   for (v in vars_cardinal){
     if (!v %in% names(df)) next
     
@@ -224,22 +236,22 @@ preprocesar_X_num_card_ord <- function(data,
     
     levs <- levels(x)
     if (length(levs) > 0){
-      mm <- stats::model.matrix(~ x - 1)             # One-hot sin intercepto
-      colnames(mm) <- paste0(v, "_", levs)           # Nombres v_nivel
-      df <- cbind(df, as.data.frame(mm))             # Añade dummies al df
+      mm <- stats::model.matrix(~ x - 1)            
+      colnames(mm) <- paste0(v, "_", levs)         
+      df <- cbind(df, as.data.frame(mm))            
     }
   }
   
-  ## 3) Ordinales: ordered + dummies acumulativas (umbral ≥)
+  ## 3) Ordinales: 
   for (v in vars_ordinal){
     if (!v %in% names(df)) next
     
-    x <- construir_factor_ordinal(df[[v]], v)        # Orden consistente
+    x <- construir_factor_ordinal(df[[v]], v)        
     df[[v]] <- x
     
     levs <- levels(x)
     k    <- length(levs)
-    code <- as.integer(x)                             # 1..k según el orden
+    code <- as.integer(x)                           
     
     # Crea k-1 dummies: v_<nivel_j> = 1 si code >= j
     # - nivel mínimo => todas 0
@@ -253,41 +265,52 @@ preprocesar_X_num_card_ord <- function(data,
 }
 
 
-# ============================================================
-# FUNCIÓN: crear_bloques_X_num_card_ord
-# ============================================================
-# OBJETIVO:
-# Construir la estructura de bloques de variables X para modelado.
+# ============================================================================
+# 7. CONSTRUCCIÓN DE BLOQUES DE VARIABLES EXPLICATIVAS
+# ============================================================================
 #
-# IDEA:
-# - Agrupa las columnas transformadas por variable original
-# - Cada bloque representa cómo entra una variable al modelo
+# Objetivo:
+# Agrupar las variables dummy a cada variable original para los
+# cálculos posteriores de ECM, μ y contribución de variables.
 #
-# ESTRUCTURA DE BLOQUES:
-# - Numéricas:
-#     → 1 única columna (la propia variable)
+# Estructura de los bloques:
 #
-# - Cardinales (nominales):
-#     → Todas sus dummies (v_nivel)
+# Variables numéricas:
+# - El bloque está formado por una única columna.
 #
-# - Ordinales:
-#     → Todas sus dummies acumulativas (v_nivel)
+# Ejemplo:
+# Age
 #
-# INPUT:
-# - datos_proc: data.frame ya preprocesado
-# - vars_numeric: variables numéricas originales
-# - vars_cardinal: variables categóricas nominales
-# - vars_ordinal: variables categóricas ordinales
+# Variables categóricas (sin orden):
+# - El bloque está formado por todas las variables dummy generadas a
+#   partir de la variable original durante el prepocesamiento
 #
-# OUTPUT:
-# - Lista nombrada:
-#     nombre_variable → vector de columnas asociadas
+# Ejemplo:
+# Race
 #
-# NOTAS:
-# - Solo incluye variables presentes en el dataset
-# - Usa patrón "v_" para localizar dummies
-# - Cada bloque puede tener 1 o varias columnas
-# ============================================================
+# Bloque:
+# Race_1
+# Race_2
+# Race_3
+#
+# Variables ordinales (con orden):
+# - El bloque está formado por todas las variables dummy acumulativas
+#   generadas a partir de la variable original durante el preprocesamiento
+#
+# Ejemplo:
+# Risk_BP
+#
+# Bloque:
+# Risk_BP_Normal
+# Risk_BP_Elevada
+# Risk_BP_Hipertension_1
+# Risk_BP_Hipertension_2
+#
+# Resultado:
+# - Cada variable original queda representada por un único bloque.
+# - Los bloques se utilizarán posteriormente para el cálculo de ECM y μ
+#
+# ============================================================================
 
 
 crear_bloques_X_num_card_ord <- function(datos_proc,
@@ -319,37 +342,43 @@ crear_bloques_X_num_card_ord <- function(datos_proc,
 }
 
 
-# ============================================================
-# FUNCIÓN: generar_coaliciones
-# ============================================================
-# OBJETIVO:
-# Generar todas las combinaciones posibles de variables (coaliciones)
-# a partir de un conjunto de variables X.
+# ============================================================================
+# 8. GENERACIÓN DE COALICIONES DE VARIABLES (S)
+# ============================================================================
 #
-# IDEA:
-# - Cada coalición representa un subconjunto de variables
-# - Incluye siempre la coalición vacía ("empty")
-# - Las combinaciones se generan hasta un tamaño máximo
+# Objetivo:
+# Generar todas las combinaciones posibles de variables de nuestra BBDD (S).
 #
-# ESTRUCTURA:
-# - "empty" → sin variables
-# - "A"     → coalición individual
-# - "A+B"   → combinación de variables
-# - etc.
+# Concepto:
+# - Una coalición es un subconjunto de variables (S).
+# - Cada coalición será necesaria para calcular el ECM(S) y μ.
 #
-# INPUT:
-# - vars_X: vector de nombres de variables
-# - max_size: tamaño máximo de las combinaciones (opcional)
+# Coaliciones generadas:
+# - Coalición vacía.
+# - Coaliciones con una variable.
+# - Coaliciones con dos variables.
+# - ...
+# - Coalición completa con todas las variables.
 #
-# OUTPUT:
-# - Lista nombrada:
-#     nombre_coalición → vector de variables
+# Ejemplo:
+# Si las variables son:
+# A, B, C
 #
-# NOTAS:
-# - Si max_size no se define, se generan todas las combinaciones
-# - Los nombres tipo "A+B+C" permiten indexación directa posterior
-# - Crece de forma combinatoria (cuidado con muchas variables)
-# ============================================================
+# Se generan:
+# empty
+# A
+# B
+# C
+# A+B
+# A+C
+# B+C
+# A+B+C
+#
+# Resultado:
+# - Generación de todas las coaliciones posibles hasta el tamaño máximo
+#  de variables de la BBDD
+#
+# ============================================================================
 
 
 generar_coaliciones <- function(vars_X, max_size = NULL){
@@ -377,39 +406,49 @@ generar_coaliciones <- function(vars_X, max_size = NULL){
 }
 
 
-# ============================================================
-# FUNCIÓN: ajustar_lineal_ECM
-# ============================================================
-# OBJETIVO:
-# Calcular el ECM de un modelo de regresión lineal (OLS)
-# a partir de un conjunto de variables explicativas.
+# ============================================================================
+# 9. CÁLCULO DEL ECM PARA VARIABLES NUMERICAS Y UNA COALICIÓN DE VARIABLES (S)
+# ============================================================================
 #
-# COMPORTAMIENTO:
-# - Si no hay predictores → usa modelo vacío (media de y)
-# - Ajusta el modelo con lm.fit (más eficiente que lm)
-# - Permite incluir o no intercepto
+# Objetivo:
+# Ajustar el modelo de regresión lineal utilizando las variables de una
+# coalición y calcular su Error Cuadrático Medio (ECM).
 #
-# PROCESO:
-# - Filtra columnas existentes
-# - Elimina filas con NA (complete cases)
-# - Ajusta el modelo lineal
-# - Calcula predicciones
-# - Devuelve el ECM
+# Criterio de ajuste:
+# - Como mejores modelos se han utilizado los que minimizan el Error Cuadrático
+#   Medio para la coalición analizada al ser pocas las variables utilizadas. 
+#   Podrían utilizarse procedimientos de selección de variables
+#   (stepwise, backward, forward, etc.) antes del cálculo del ECM.
+# - En este caso se utiliza directamente el ajuste lineal que minimiza
+#   el error para las variables incluidas en la coalición.
 #
-# INPUT:
-# - datos: data.frame
-# - y: nombre de la variable objetivo
-# - x_cols: vector de variables explicativas
-# - intercept: TRUE/FALSE para incluir intercepto
+# Tratamiento aplicado:
 #
-# OUTPUT:
-# - Valor numérico (ECM del modelo)
+# Modelo vacío:
+# - Si la coalición no contiene variables, la predicción tendrá
+#   únicamente el intercepto.
 #
-# NOTAS:
-# - En caso de colinealidad, coeficientes NA se reemplazan por 0
-# - Usa solo filas completas en y y X
-# - Requiere función calcular_ECM_vacio()
-# ============================================================
+# Modelos con variables explicativas:
+# - Se seleccionan la/s variable/s de la coalición (S).
+# - Se ajusta un modelo de regresión lineal.
+# - El modelo estima los coeficientes que minimizan el error cuadrático
+#   para la coalición analizada.
+# - Se calculan las predicciones obtenidas.
+# - Se calcula el ECM asociado a dicha coalición.
+#
+# Ejemplo:
+# Si la variable objetivo es Age:
+#
+# ECM(empty)
+# ECM(Race)
+# ECM(Risk_BP)
+# ECM(Race + Risk_BP)
+#
+# Resultado:
+# - ECM del modelo asociado a la coalición evaluada.
+#
+#
+# ============================================================================
 
 
 ajustar_lineal_ECM <- function(datos, y, x_cols, intercept = TRUE){
@@ -445,153 +484,65 @@ ajustar_lineal_ECM <- function(datos, y, x_cols, intercept = TRUE){
   mean((y_cc - y_hat)^2, na.rm = TRUE)               # ECM
 }
 
-# ============================================================
-# FUNCIÓN: ajustar_logit_ECM
-# ============================================================
-# OBJETIVO:
-# Calcular el ECM en un modelo de clasificación binaria
-# usando regresión logística (Brier score).
-#
-# COMPORTAMIENTO:
-# - Valida que el target sea binario
-# - Convierte la variable objetivo a 0/1
-# - Si no hay predictores → modelo con solo intercepto
-# - Ajusta modelo logístico (glm binomial)
-#
-# PROCESO:
-# - Filtra variables disponibles
-# - Usa solo filas completas
-# - Detecta predicción perfecta (ECM=0)
-# - Calcula probabilidades y Brier score
-#
-# INPUT:
-# - datos: data.frame
-# - y: variable objetivo (binaria)
-# - x_cols: variables explicativas
-#
-# OUTPUT:
-# - Valor numérico (ECM tipo Brier score)
-#
-# NOTAS:
-# - Requiere es_binaria_generica() y normalizar_binaria()
-# - Si alguna X reproduce exactamente y → ECM = 0
-# - El ECM mide error en probabilidades, no en clases
-# ============================================================
 
-
-ajustar_logit_ECM <- function(datos, y, x_cols){
-  
-  # 1) Validación: el target debe ser binario
-  if (!es_binaria_generica(datos[[y]]))
-    stop(paste0("ajustar_logit_ECM: ", y, " no es binaria."))
-  
-  # 2) Normalización a 0/1
-  yb <- normalizar_binaria(datos[[y]])
-  x_cols <- intersect(x_cols, names(datos))
-  
-  # 3) Modelo vacío: solo intercepto (p0 = prevalencia)
-  #    ECM = mean((1 - P(correcto))^2) = Brier score equivalente
-  if (length(x_cols) == 0){
-    p0 <- mean(yb, na.rm = TRUE)
-    PC <- ifelse(yb == 1, p0, 1 - p0)
-    return(mean((1 - PC)^2, na.rm = TRUE))
-  }
-  
-  # 4) Filas completas
-  sub <- datos[, c(y, x_cols), drop = FALSE]
-  sub[[y]] <- yb
-  cc <- complete.cases(sub)
-  if (!any(cc)) return(NA_real_)
-  
-  d <- sub[cc, , drop = FALSE]
-  
-  # 5) Chequeo matemático de predicción perfecta:
-  #    Si existe alguna columna X exactamente igual a y (en las filas completas),
-  #    entonces el mínimo ECM posible es 0 (P(correcto)=1) y no dependemos de glm.
-  y_cc <- d[[y]]
-  X_cc <- as.matrix(d[, x_cols, drop = FALSE])
-  if (ncol(X_cc) > 0){
-    igual_col <- apply(X_cc, 2, function(col) all(col == y_cc))
-    if (any(igual_col)){
-      return(0)  # ECM_S=0 => μ=1 si ECM_Vacio>0
-    }
-  }
-  
-  # 6) Ajuste glm binomial estándar
-  f <- as.formula(paste(y, "~", paste(x_cols, collapse = "+")))
-  mod <- suppressWarnings(glm(f, data = d, family = binomial))
-  
-  pr <- predict(mod, type = "response")              # Probabilidades P(y=1|X)
-  PC <- ifelse(d[[y]] == 1, pr, 1 - pr)              # Probabilidad de clase correcta
-  
-  mean((1 - PC)^2, na.rm = TRUE)                     # Brier score
-}
-
-
-# ============================================================
-# FUNCIÓN: crear_dummies_targets_discretas
-# ============================================================
-# OBJETIVO:
-# Transformar variables objetivo categóricas (no numéricas)
-# en variables dummy para modelado, y calcular un peso base.
+# ============================================================================
+# 10. CONSTRUCCIÓN DE VARIABLES DUMMY PARA TARGETS DISCRETOS
+# ============================================================================
 #
-# TIPOS DE VARIABLES QUE SE TRANSFORMAN:
-# - Variables categóricas NOMINALES (sin orden)
-# - Variables categóricas ORDINALES (con orden)
+# Objetivo:
+# Transformar variables objetivo categóricas en variables dummy (0/1)
+# para su utilización en los modelos de clasificación y en el cálculo
+# posterior de ECM y μ.
 #
-# IMPORTANTE:
-# - Las variables NUMÉRICAS (edad, ingresos, etc.) NO se transforman
-# - Esta función SOLO actúa sobre variables categóricas
+# Variables transformadas:
+# - Variables categóricas nominales.
+# - Variables categóricas ordinales.
 #
-# TRANSFORMACIONES:
+# Transformaciones aplicadas:
 #
-# A) Targets nominales (cardinales):
-#   → One-hot encoding (una dummy por categoría)
-#   → Cada categoría se convierte en una variable binaria (0/1)
-#   → Formato: Y_variable_categoria
+# Targets nominales:
+# - Se genera una variable dummy para cada categoría.
 #
-#   Ejemplo:
-#       color = {rojo, azul}
-#   →   Y_color_rojo
-#       Y_color_azul
+# Ejemplo:
+# Race
 #
-# B) Targets ordinales:
-#   → Dummies acumulativas (tipo umbral ≥ nivel)
-#   → Se respeta el orden de los niveles
-#   → Se crean k-1 variables
+# Variables objetivo generadas:
+# Y_Race_White
+# Y_Race_Black
+# Y_Race_Other
 #
-#   Ejemplo:
-#       rango = {soldado < sargento < capitan}
-#   →   Y_rango_sargento  (>= sargento)
-#       Y_rango_capitan   (>= capitan)
+# Targets ordinales:
+# - Se generan variables dummy acumulativas respetando el orden de los niveles.
 #
-# PESOS:
+# Ejemplo:
+# Risk_BP
+#
+# Variables objetivo generadas:
+# Y_Risk_BP_Normal
+# Y_Risk_BP_Elevada
+# Y_Risk_BP_Hipertension_1
+# Y_Risk_BP_Hipertension_2
+#
+# Metodología:
+# - Cada variable dummy podrá utilizarse posteriormente como variable
+#   objetivo independiente.
+# - Para cada dummy se evaluarán las distintas coaliciones de variables
+#   explicativas disponibles.
+# - Sobre cada dummy se calcularán posteriormente ECM y μ.
+#
+# Peso base:
 # - Para cada dummy se calcula:
+#
 #     ws_base = min(#1, #0)
-# - Mide el equilibrio de clases de la dummy
-# - Se usa después para ponderar resultados
 #
-# INPUT:
-# - datos: data.frame original
-# - vars_cardinal_targets: variables categóricas nominales
-# - vars_ordinal_targets: variables categóricas ordinales
+# - El peso mide el equilibrio entre observaciones positivas y negativas.
+# - Se utilizará posteriormente para ponderar resultados de la medida difusa
+# asociada a la variable original
+# Resultado:
+# - Dataset con las variables dummy añadidas.
+# - Tabla auxiliar con los pesos asociados a cada dummy.
 #
-# OUTPUT:
-# - Lista con:
-#     $datos  → data.frame con las dummies añadidas
-#     $pesos  → tabla con info y pesos de cada dummy
-#
-# NOTAS:
-# - Las variables originales se mantienen
-# - Los nombres se normalizan con make.names()
-# - Requiere construir_factor_ordinal()
-
-# NOTA GENERAL:
-# - El modelo final siempre trabaja con variables numéricas
-# - Las variables categóricas se convierten a formato numérico (dummies)
-
-# ============================================================
-
+# ============================================================================
 
 
 crear_dummies_targets_discretas <- function(datos,
@@ -665,62 +616,123 @@ crear_dummies_targets_discretas <- function(datos,
 }
 
 
-# ============================================================
-# FUNCIÓN: calcular_Mu_numerica_target
-# ============================================================
-# OBJETIVO:
-# Calcular la métrica μ para una VARIABLE OBJETIVO NUMÉRICA
-# (variable continua o cuantitativa) en todas las coaliciones
-# de variables explicativas.
+
+
+# ============================================================================
+# 11. CÁLCULO DEL ECM PARA VARIABLES DUMMY Y UNA COALICIÓN DE VARIABLES (S)
+# ============================================================================
 #
-# IMPORTANTE (CLAVE PARA ENTENDER LA FUNCIÓN):
-# - "Target numérico" significa que la variable ORIGINAL ya es numérica
-#     (ej: edad, ingresos, temperatura…)
+# Objetivo:
+# Evaluar la capacidad predictiva de variables dummy (0/1) utilizando
+# distintas coaliciones de variables explicativas.
 #
-# - NO significa que otras variables no sean numéricas en el modelo:
-#     → En el modelo TODAS las variables son numéricas (dummies incluidas)
-#     → Pero aquí distinguimos el TIPO ORIGINAL del target
+# Variables objetivo:
+# - Las variables objetivo utilizadas en esta fase son variables dummy
+#   generadas previamente a partir de variables categóricas nominales
+#   u ordinales.
 #
-# - Esta función NO se usa para variables categóricas:
-#     → Las categóricas (nominales u ordinales) se tratan con:
-#         calcular_Mu_discreta_target()
+# Ejemplos:
 #
-# IDEA:
-# - Compara el error del modelo con variables (ECM_S)
-#   frente al modelo vacío (ECM_Vacio)
-# - Evalúa la contribución de cada subconjunto de variables (S)
+# Variables dummy asociadas a Race:
+# - Race_White
+# - Race_Black
+# - Race_Other
 #
-# COMPORTAMIENTO:
-# - ECM_Vacio → error usando solo la media de y
-# - ECM_S     → error del modelo lineal con variables en S
-# - μ         → mejora relativa respecto al modelo vacío
+# Variables dummy asociadas a Risk_BP:
+# - Risk_BP_Normal
+# - Risk_BP_Elevada
+# - Risk_BP_Hipertension_1
+# - Risk_BP_Hipertension_2
 #
-# CASO ESPECIAL (IMPORTANTE):
-# - Si el target y pertenece a la coalición S:
-#     → Se incluye y como predictor
-#     → Se elimina el intercepto
-#     → Esto permite predicción perfecta:
-#         ECM_S = 0  →  μ = 1
+# Metodología:
+# - Cada variable dummy se analiza de forma independiente.
+# - Para cada variable dummy se generan las distintas coaliciones de las
+#   demás variables disponibles.
+# - Para cada coalición se ajusta un modelo de regresión logística (El 
+#   ajuste estima los parámetros que minimizan el error de predicción
+#   para la coalición analizada).
+# - El modelo estima las probabilidades de que la variable dummy tome
+#   valor 1.
+# - Se calcula el ECM 
 #
-# INPUT:
-# - Datos: data.frame
-# - y: variable objetivo ORIGINAL (numérica)
-# - bloques_X: lista de bloques de variables (pueden incluir dummies)
-# - coaliciones: lista de subconjuntos de variables originales
+# Modelo vacío:
+# - Si la coalición no contiene variables explicativas, se utiliza un
+#   modelo formado únicamente por el intercepto.
 #
-# OUTPUT:
-# - data.frame con:
-#     var_original → nombre del target
-#     S            → coalición evaluada
-#     Mu           → valor de la métrica
-#     tipo_target  → "numerica"
+# Resultado:
+# - ECM asociado a cada variable dummy y a cada coalición evaluada.
+# - Estos valores se utilizarán posteriormente para calcular μ.
 #
-# NOTAS:
-# - Usa ajustar_lineal_ECM() y calcular_Mu()
-# - El modelo es siempre lineal (OLS)
-# - Aunque X pueda contener dummies, el target y es numérico real
-# - Base para análisis tipo Shapley
-# ============================================================
+# ============================================================================
+
+ajustar_logit_ECM <- function(datos, y, x_cols){
+  
+  # 1) Validación: el target debe ser binario
+  if (!es_binaria_generica(datos[[y]]))
+    stop(paste0("ajustar_logit_ECM: ", y, " no es binaria."))
+  
+  # 2) Normalización a 0/1
+  yb <- normalizar_binaria(datos[[y]])
+  x_cols <- intersect(x_cols, names(datos))
+  
+  # 3) Modelo vacío: solo intercepto 
+  #    ECM = mean((1 - P(correcto))^2) 
+  if (length(x_cols) == 0){
+    p0 <- mean(yb, na.rm = TRUE)
+    PC <- ifelse(yb == 1, p0, 1 - p0)
+    return(mean((1 - PC)^2, na.rm = TRUE))
+  }
+  
+  # 4) Filas completas
+  sub <- datos[, c(y, x_cols), drop = FALSE]
+  sub[[y]] <- yb
+  cc <- complete.cases(sub)
+  if (!any(cc)) return(NA_real_)
+  
+  d <- sub[cc, , drop = FALSE]
+  
+  # 5) Chequeo matemático de predicción perfecta:
+  y_cc <- d[[y]]
+  X_cc <- as.matrix(d[, x_cols, drop = FALSE])
+  if (ncol(X_cc) > 0){
+    igual_col <- apply(X_cc, 2, function(col) all(col == y_cc))
+    if (any(igual_col)){
+      return(0)  # ECM_S=0 => μ=1 si ECM_Vacio>0
+    }
+  }
+  
+  # 6) Ajuste glm binomial estándar
+  f <- as.formula(paste(y, "~", paste(x_cols, collapse = "+")))
+  mod <- suppressWarnings(glm(f, data = d, family = binomial))
+  
+  pr <- predict(mod, type = "response")              
+  PC <- ifelse(d[[y]] == 1, pr, 1 - pr)              # Probabilidad de clase correcta
+  
+  mean((1 - PC)^2, na.rm = TRUE)                    
+}
+
+
+
+
+# ============================================================================
+# 12. CÁLCULO DE μ PARA VARIABLES TARGET NUMÉRICAS
+# ============================================================================
+#
+# Objetivo:
+# Calcular la medida difusa μ para una variable objetivo numérica
+# utilizando todas las coaliciones posibles de variables explicativas.
+#
+# Metodología:
+# - Se calcula el ECM del modelo vacío.
+# - Para cada coalición S se calcula el ECM asociado al modelo lineal.
+# - Se compara ECM(S) frente al ECM vacío.
+# - Se obtiene μ(S) 
+#
+# Resultado:
+# - Valor de μ para cada coalición S.
+# - Tabla de resultados asociada a la variable objetivo analizada.
+#
+# ============================================================================
 
 
 calcular_Mu_numerica_target <- function(Datos, y, bloques_X, coaliciones){
@@ -762,61 +774,43 @@ calcular_Mu_numerica_target <- function(Datos, y, bloques_X, coaliciones){
 }
 
 
-# ============================================================
-# FUNCIÓN: calcular_Mu_discreta_target
-# ============================================================
-# OBJETIVO:
-# Calcular la métrica μ para una VARIABLE OBJETIVO CATEGÓRICA
-# (nominal o ordinal), usando sus variables dummy asociadas.
+# ============================================================================
+# 13. CÁLCULO DE μ PARA VARIABLES OBJETIVO CATEGÓRICAS
+# ============================================================================
 #
-# IMPORTANTE (CLAVE PARA ENTENDER LA FUNCIÓN):
-# - "Target discreto" significa que la variable ORIGINAL es categórica:
-#     → Nominal (sin orden)  o  Ordinal (con orden)
+# Objetivo:
+# Calcular la medida difusa μ para una variable objetivo categórica
+# (nominal u ordinal) utilizando todas las coaliciones posibles de
+# variables explicativas.
 #
-# - Esta función NO trabaja directamente con la variable original:
-#     → Primero esa variable ha sido transformada en dummies (Y_...)
-#     → Cada dummy es una variable binaria (0/1)
+# Metodología:
+# - La variable objetivo original se representa mediante las variables
+#   dummy generadas previamente.
+# - Para cada variable dummy se calcula el ECM del modelo vacío.
+# - Para cada coalición S se calcula el ECM asociado al modelo logístico.
+# - Se obtiene μ(S) para cada variable dummy.
+# - Los resultados de las variables dummy se agregan para obtener un
+#   único valor de μ asociado a la variable original.
 #
-# - Aunque las dummies son numéricas, el problema sigue siendo de CLASIFICACIÓN
-#   (no de regresión como en el caso numérico)
+# Agregación:
+# - La agregación se realiza mediante una media ponderada.
+# - El peso de cada variable dummy depende de su variabilidad.
+# - El peso utilizado es:
 #
-# - Para variables numéricas originales (edad, ingresos, etc.):
-#     → usar calcular_Mu_numerica_target()
+#     wc_i = min(número de unos, número de ceros)
 #
-# IDEA:
-# - Cada categoría (nominal) o umbral (ordinal) se representa como una dummy
-# - Se evalúa un modelo para cada dummy (problema binario)
-# - Se combinan los resultados para obtener un único μ por variable original
+# - Las variables dummy más equilibradas reciben mayor peso.
+# - Las variables dummy muy desbalanceadas reciben menor peso.
 #
-# COMPORTAMIENTO:
-# - ECM_V → error del modelo vacío para cada dummy (baseline)
-# - ECM_S → error del modelo logístico (Brier score)
-# - μ_k   → mejora relativa por dummy
+# Ejemplo:
+# - Una dummy con 40% de unos y 60% de ceros tendrá más peso
+#   que una dummy con 20% de unos y 80% de ceros.
 #
-# AGREGACIÓN:
-# - μ final = media ponderada de μ_k
-# - Pesos: ws_base (equilibrio de clases en cada dummy)
+# Resultado:
+# - Valor de μ para cada coalición S.
+# - Tabla de resultados asociada a la variable objetivo analizada.
 #
-# INPUT:
-# - Datos: data.frame con dummies ya creadas (Y_...)
-# - var_name: nombre de la variable categórica original
-# - bloques_X: lista de bloques de variables (pueden incluir dummies)
-# - coaliciones: subconjuntos de variables originales
-# - tabla_pesos: tabla con información de cada dummy
-#
-# OUTPUT:
-# - data.frame con:
-#     var_original → nombre del target original
-#     S            → coalición evaluada
-#     Mu           → valor agregado
-#     tipo_target  → "discreta"
-#
-# NOTAS:
-# - Usa ajustar_logit_ECM() y calcular_Mu()
-# - Cada dummy se modela como un problema binario independiente
-# - El resultado final se interpreta a nivel de variable original
-# - Base para análisis tipo Shapley
-# ============================================================
+# ============================================================================  
 
 
 
@@ -876,52 +870,34 @@ calcular_Mu_discreta_target <- function(Datos, var_name,
 }
 
 
-# ============================================================
-# FUNCIÓN: construir_matriz_mu
-# ============================================================
-# OBJETIVO:
-# Convertir la tabla de resultados de μ (formato largo)
-# en una matriz donde:
-#   - Filas    → coaliciones S
-#   - Columnas → variables objetivo
+# ============================================================================
+# 14. CONSTRUCCIÓN DE LA MATRIZ μ
+# ============================================================================
 #
-# CONTEXTO:
-# - Antes de esta función, μ se ha calculado en formato "tabla larga":
-#     (var_original, S, Mu)
+# Objetivo:
+# Reorganizar los resultados de μ en formato matricial para facilitar
+# los análisis posteriores.
 #
-# - Esta función reorganiza esos resultados en formato matricial,
-#   necesario para análisis posteriores (ej: Shapley, comparaciones)
+# Metodología:
+# - Cada fila representa una coalición S.
+# - Cada columna representa una variable del dataset.
+# - Cada celda contiene el valor de la medida difusa asociado a esa combinación.
 #
-# ESTRUCTURA DE SALIDA:
-# - Filas: cada coalición S (ej: "A+B", "empty", etc.)
-# - Columnas: cada variable objetivo (numérica o categórica original)
-# - Valores: μ(S) para cada combinación
+# Ejemplo:
 #
-# EJEMPLO:
-#               edad   color   rango
-#   empty        0      0       0
-#   A            0.2    0.1     0.3
-#   A+B          0.4    0.5     0.6
+#               Age     Race     Risk_BP
+# empty         0.00    0.00      0.00
+# Age           1.00    0.25      0.30
+# Race          0.10    1.00      0.15
+# Age+Race      1.00    1.00      0.45
 #
-# INPUT:
-# - tabla_mu: data.frame con columnas:
-#       var_original → variable objetivo
-#       S            → coalición
-#       Mu           → valor calculado
+# Resultado:
+# - Matriz μ con las coaliciones (S) en filas y las variables 
+#   en columnas.
+# - Estructura preparada para metodología 4
 #
-# - vars_original: vector con nombres de variables objetivo
-# - coal_keys: vector con nombres de coaliciones (orden de filas)
-#
-# OUTPUT:
-# - data.frame (matriz μ):
-#       filas = coaliciones
-#       columnas = variables objetivo
-#
-# NOTAS:
-# - Si falta alguna combinación (S, variable), se deja como NA
-# - Se asume una única fila por (var_original, S)
-# - Facilita cálculos posteriores sobre μ (ej: agregaciones)
-# ============================================================
+# ============================================================================
+
 
 
 construir_matriz_mu <- function(tabla_mu, vars_original, coal_keys){
@@ -943,130 +919,97 @@ construir_matriz_mu <- function(tabla_mu, vars_original, coal_keys){
 }
 
 
-# ============================================================
-# FUNCIÓN: aplicar_mu_mejor_monotono
-# ============================================================
-# OBJETIVO:
-# Corregir la métrica μ para que sea MONÓTONA respecto a la
-# inclusión de variables en la coalición.
+# ============================================================================
+# 15. AJUSTE MONÓTONO DE LA MEDIDA μ
+# ============================================================================
 #
-# PROBLEMA (MUY IMPORTANTE):
-# - El μ calculado originalmente puede NO ser monótono:
+# Objetivo:
+# Garantizar que la incorporación de nuevas variables a una coalición
+# nunca reduzca el valor final de μ.
 #
-#     Puede ocurrir que:
-#         μ(A + B) < μ(A)
+# Problema:
+# - Puede ocurrir que una coalición con más variables obtenga una μ
+#   inferior a la de alguno de sus subconjuntos con menos variables.
 #
-# - Es decir, añadir variables puede empeorar μ, debido a:
-#     → ruido
-#     → sobreajuste
-#     → inestabilidad del modelo
+# Ejemplo:
 #
-# - Esto es coherente estadísticamente, pero:
-#     ❗ rompe la intuición de "más información no empeora"
+# μ(A + B)     = 0.80
+# μ(A + B + C) = 0.70
 #
-# SOLUCIÓN:
-# - Para cada coalición S, se redefine:
+# Aunque la coalición A+B+C contiene más información, su valor es inferior.
 #
-#     μ_best(S) = max{ μ(T) : T ⊆ S }
+# Criterio aplicado:
+# - Para cada coalición S se conserva el mejor valor de μ obtenido
+#   entre S y todos sus subconjuntos.
 #
-# - Es decir:
-#     → Nos quedamos con el MEJOR resultado alcanzable
-#       usando cualquier subconjunto de S
+# Ejemplo:
 #
-# INTERPRETACIÓN:
-# - μ_best(S) representa:
-#     "Lo mejor que puedes conseguir usando las variables de S"
+# μ(A + B)     = 0.80
+# μ(A + B + C) = 0.70
 #
-# - Nunca será peor que usar menos variables
-# - Garantiza comportamiento monotónico
+# Resultado ajustado:
 #
-# IMPLEMENTACIÓN:
-# - Se usa Programación Dinámica (DP)
-# - Se recorren las coaliciones por tamaño creciente:
+# μ*(A + B + C) = 0.80
 #
-#     μ_best(empty) = μ(empty)
+# Interpretación:
+# - Si una coalición de dos variables presenta mejor capacidad
+#   predictiva que una coalición de tres variables, prevalece
+#   el valor de la coalición de dos variables.
 #
-#     para S ≠ empty:
-#     μ_best(S) = max(
-#         μ(S),
-#         μ_best(S sin cada variable)
-#     )
+# Resultado:
+# - Se obtiene una versión monótona de μ.
+# - Añadir variables nunca empeora el valor final de la medida.
 #
-# INPUT:
-# - tabla_mu: data.frame en formato largo:
-#       var_original, S, Mu
-#
-# - coaliciones: lista de coaliciones (nombre → variables)
-#
-# - vars_X_all: vector global de variables (define orden canónico)
-#
-# OUTPUT:
-# - data.frame igual que tabla_mu, pero con:
-#     Mu → reemplazado por μ_best (monótono)
-#
-# NOTAS:
-# - Se aplica de forma independiente por variable objetivo
-# - No modifica la estructura de la tabla (solo los valores)
-# - Es clave para análisis tipo Shapley consistentes
-#
-# CUIDADO:
-# - Este ajuste cambia la interpretación:
-#     μ ya no es el valor exacto del modelo,
-#     sino el mejor valor alcanzable dentro de S
-# ============================================================
+# ============================================================================
 
 
-# max que tolera NA (si todos NA => NA)
+
 .max_na <- function(x){
   if (length(x) == 0 || all(is.na(x))) return(NA_real_)
   max(x, na.rm = TRUE)
 }
 
-# Clave canónica para un conjunto de vars respetando el orden global vars_X_all
-# - Debe coincidir con generar_coaliciones(): "A+B+C" o "empty"
 .clave_canonica <- function(vars, vars_X_all){
   if (length(vars) == 0) return("empty")
-  # Mantiene el orden del vector global, que es el que usas para crear coaliciones
+
   vars <- intersect(vars_X_all, as.character(vars))
   paste(vars, collapse = "+")
 }
 
-# Aplica el ajuste monótono a UNA tabla de μ en formato largo
-# (sin cambiar estructura: reemplaza columna Mu)
+
 aplicar_mu_mejor_monotono <- function(tabla_mu, coaliciones, vars_X_all){
   
   if (is.null(tabla_mu) || nrow(tabla_mu) == 0) return(tabla_mu)
   
   coal_keys <- names(coaliciones)
   
-  # Orden de coaliciones por tamaño (para DP)
+
   sizes <- vapply(coaliciones, length, integer(1))
-  orden_keys <- coal_keys[order(sizes, coal_keys)]  # estable y reproducible
+  orden_keys <- coal_keys[order(sizes, coal_keys)]  
   
   tabla_out <- tabla_mu
   
-  # Aplicamos DP por cada variable objetivo (var_original) independientemente
+
   targets <- unique(tabla_out$var_original)
   
   for (tg in targets){
     
     idx_tg <- which(tabla_out$var_original == tg)
     mu_map <- setNames(tabla_out$Mu[idx_tg], tabla_out$S[idx_tg])
-    
-    # best_map almacenará μ_best para cada coalición S (por clave)
+
     best_map <- setNames(rep(NA_real_, length(coal_keys)), coal_keys)
     
-    # DP en tamaño creciente
+ 
     for (S_key in orden_keys){
       
       mu_S <- mu_map[[S_key]]
       S_vars <- coaliciones[[S_key]]
       
       if (length(S_vars) == 0){
-        # base: vacío
+      
         best_map[[S_key]] <- mu_S
       } else {
-        # candidatos: el propio μ(S) + los mejores de S sin cada elemento
+  
         sub_keys <- vapply(S_vars, function(v){
           .clave_canonica(setdiff(S_vars, v), vars_X_all)
         }, character(1))
@@ -1087,104 +1030,30 @@ aplicar_mu_mejor_monotono <- function(tabla_mu, coaliciones, vars_X_all){
 }
 
 
-# ============================================================
-# FUNCIÓN: calcular_mu_num_card_ord
-# ============================================================
-# OBJETIVO:
-# Pipeline completo para calcular la métrica μ para variables
-# objetivo de tipo:
-#   - Numéricas (regresión)
-#   - Categóricas nominales (clasificación)
-#   - Categóricas ordinales (clasificación con orden)
+# ============================================================================
+# 16. PIPELINE DE EJECUCIÓN COMPLETO DE LA MEDIDA DIFUSA μ
+# ============================================================================
 #
-# IMPORTANTE (CLAVE GLOBAL DEL SISTEMA):
-# - Tipos de variables originales:
-#     → Numéricas        (ej: edad, ingresos)
-#     → Nominales        (ej: color, tipo)
-#     → Ordinales        (ej: nivel, rango)
+# Objetivo:
+# Ejecutar de forma integrada todo el proceso de cálculo de la medida
+# difusa μ para variables objetivo numéricas, nominales y ordinales.
 #
-# - Transformación:
-#     → Numéricas  → NO se transforman
-#     → Nominales  → dummies (one-hot)
-#     → Ordinales  → dummies acumulativas
+# Procesos ejecutados:
 #
-# - Modelo:
-#     → TODAS las variables en el modelo son numéricas
-#     → Pero se respeta el tipo ORIGINAL del target:
+# 1. Preprocesamiento de variables explicativas.
+# 2. Construcción de bloques de variables.
+# 3. Generación de coaliciones (S).
+# 4. Construcción de variables dummy para targets discretos.
+# 5. Cálculo de μ para variables objetivo numéricas.
+# 6. Cálculo de μ para variables objetivo categóricas.
+# 7. Aplicación del ajuste monótono.
+# 8. Construcción de la matriz μ.
 #
-#         Numérico   → modelo lineal
-#         Categórico → modelo logit (Brier score)
+# Resultado:
+# - Tabla detallada con los valores μ.
+# - Matriz μ preparada para método 4.
 #
-# IDEA GENERAL:
-# - Para cada variable objetivo y cada coalición S:
-#     → se calcula cuánto mejora el modelo usando S
-#     → respecto a no usar ninguna variable (modelo vacío)
-#
-# - μ(S) mide:
-#     "cuánto ayuda el conjunto de variables S a predecir el target"
-#
-# FLUJO DEL PIPELINE:
-#
-# 1) Preprocesado de X:
-#     → convierte variables categóricas en dummies
-#     → deja todo en formato numérico
-#
-# 2) Construcción de bloques:
-#     → agrupa columnas por variable original
-#
-# 3) Generación de coaliciones:
-#     → todos los subconjuntos de variables X
-#
-# 4) Transformación de targets categóricos:
-#     → nominales → one-hot
-#     → ordinales → dummies acumulativas
-#
-# 5) Cálculo de μ para targets numéricas:
-#     → regresión lineal (ECM)
-#
-# 6) Cálculo de μ para targets categóricas:
-#     → modelo logit (Brier score)
-#     → cálculo por dummy + agregación
-#
-# 7) AJUSTE MONÓTONO (IMPORTANTE):
-#     → μ puede no ser monótono al añadir variables
-#     → se corrige con:
-#
-#         μ_best(S) = max_{T ⊆ S} μ(T)
-#
-#     → garantiza que añadir variables nunca empeora μ
-#
-# 8) Construcción de matriz μ:
-#     → filas = coaliciones S
-#     → columnas = variables objetivo
-#
-# INPUT:
-# - Datos: data.frame original
-#
-# - Targets:
-#     vars_numeric_targets   → variables numéricas objetivo
-#     vars_cardinal_targets  → variables nominales objetivo
-#     vars_ordinal_targets   → variables ordinales objetivo
-#
-# - Variables explicativas (X):
-#     vars_X_numeric
-#     vars_X_cardinal
-#     vars_X_ordinal
-#
-# - max_bloques:
-#     → tamaño máximo de coaliciones (control de complejidad)
-#
-# OUTPUT:
-# - lista con:
-#     tabla_mu_detalle → resultados en formato largo
-#     matriz_mu        → resultados en formato matriz
-#
-# NOTAS:
-# - El número de coaliciones crece combinatoriamente (2^p)
-# - El ajuste monótono cambia la interpretación de μ:
-#     pasa de valor "real" a "mejor alcanzable"
-# - Base para análisis tipo Shapley y explicabilidad
-# ============================================================
+# ============================================================================
 
 
 calcular_mu_num_card_ord <- function(Datos,
@@ -1242,11 +1111,10 @@ calcular_mu_num_card_ord <- function(Datos,
                                                    tabla_pesos)
                      }))
   
-  # 7) Tabla larga (Mu “tal cual” modelo)
+  # 7) Cálculo y corrección μ monótono si procece
   tabla_mu <- rbind(mu_num, mu_disc)
   
-  # 7b) AJUSTE NUEVO: hacer μ monótono por coalición
-  #     Reemplaza Mu por μ_best(S)=max_{T⊆S} μ(T)
+
   tabla_mu <- aplicar_mu_mejor_monotono(
     tabla_mu    = tabla_mu,
     coaliciones = coaliciones,
@@ -1264,102 +1132,41 @@ calcular_mu_num_card_ord <- function(Datos,
 }
 
 
-# ============================================================
-# FUNCIÓN: calcular_todo_Mu
-# ============================================================
-# OBJETIVO:
-# Wrapper del pipeline completo para calcular μ, manteniendo
-# el formato de salida del código anterior (compatibilidad).
+# ============================================================================
+# 17. EJECUCIÓN Y ORGANIZACIÓN DE RESULTADOS DE μ
+# =============================================================================
 #
-# ESTE WRAPPER:
-# - Llama al pipeline principal (calcular_mu_num_card_ord)
-# - Adapta la salida al formato antiguo
+# Objetivo:
+# Ejecutar el pipeline completo de cálculo de la medida difusa μ y
+# adaptar los resultados al formato de salida utilizado en versiones
+# anteriores.
 #
-# IMPORTANTE (PARA ENTENDER BIEN LA FUNCIÓN):
+# Procesos ejecutados:
+# - Identificación automática de variables objetivo nominales y ordinales.
+# - Ejecución del pipeline completo de cálculo de μ.
+# - Adaptación de resultados a formatos compatibles.
 #
-# 1) TIPOS DE VARIABLES ORIGINALES:
-# - vars_numeric_original     → targets numéricas (ej: edad)
-# - vars_categoricas_original → targets categóricas (nominal + ordinal)
+# Resultados generados:
 #
-# 2) VARIABLES EXPLICATIVAS (X):
-# - Se dividen en:
-#     → numéricas
-#     → categóricas nominales
-#     → categóricas ordinales
+# 1. tabla_mu_modelos_todos
+#    - Tabla detallada de resultados.
 #
-# - Estas se transforman internamente en:
-#     → numéricas (sin cambios)
-#     → dummies (nominales)
-#     → dummies acumulativas (ordinales)
+# 2. tabla_mu_variables
+#    - Tabla resumida con:
+#        variable objetivo
+#        coalición S
+#        valor μ
 #
-# 3) SEPARACIÓN AUTOMÁTICA DE TARGETS:
-# - Las targets categóricas se separan en:
+# 3. matriz_mu
+#    - Matriz final de la medida difusa μ.
+#    - Filas: coaliciones S.
+#    - Columnas: variables objetivo.
 #
-#     cardinales (nominales) → one-hot
-#     ordinales              → acumulativas
+# Resultado:
+# - Punto único de ejecución para el cálculo completo de la medida
+#   difusa μ.
 #
-# - Esto se basa en cómo están definidas en X:
-#     vars_cardinal_X / vars_ordinal_X
-#
-# FLUJO INTERNO (RESUMEN):
-# - Llama a calcular_mu_num_card_ord()
-# - Calcula μ para:
-#     → targets numéricas (regresión lineal)
-#     → targets categóricas (logit + agregación)
-# - Aplica ajuste monótono:
-#
-#     μ_best(S) = max_{T ⊆ S} μ(T)
-#
-# SALIDA (FORMATO COMPATIBLE):
-#
-# 1) tabla_mu_modelos_todos:
-# - Formato extendido (como tu sistema anterior)
-# - Incluye placeholders (ECM_S, ECM_Vacio, etc.)
-#
-# 2) tabla_mu_variables:
-# - Formato compacto:
-#     var_original, S, Mu
-#
-# 3) matriz_mu:
-# - Filas    → coaliciones S
-# - Columnas → variables objetivo
-#
-# INPUT:
-# - Datos: data.frame original
-#
-# - Targets:
-#     vars_numeric_original
-#     vars_categoricas_original
-#
-# - Variables explicativas (X):
-#     vars_numeric_X
-#     vars_cardinal_X
-#     vars_ordinal_X
-#
-# - max_bloques:
-#     → tamaño máximo de coaliciones
-#
-# - usar_step:
-#     → NO utilizado (compatibilidad; se ignora)
-#
-# OUTPUT:
-# - lista con:
-#     tabla_mu_modelos_todos
-#     tabla_mu_variables
-#     matriz_mu
-#
-# NOTAS IMPORTANTES:
-#
-# - Este wrapper NO calcula μ directamente:
-#     → delega en calcular_mu_num_card_ord()
-#
-# - Solo transforma la salida para mantener compatibilidad
-#
-# - Las columnas ECM_S y ECM_Vacio se devuelven vacías (NA)
-#
-# - El parámetro usar_step se mantiene por compatibilidad,
-#   pero actualmente no tiene efecto
-# ============================================================
+# ============================================================================
 
 
 calcular_todo_Mu <- function(Datos,
@@ -1371,11 +1178,11 @@ calcular_todo_Mu <- function(Datos,
                              max_bloques = NULL,
                              usar_step = FALSE){
   
-  # Separa targets categóricas en cardinales y ordinales según el esquema X
+
   vars_cardinal_targets <- intersect(vars_categoricas_original, vars_cardinal_X)
   vars_ordinal_targets  <- intersect(vars_categoricas_original, vars_ordinal_X)
   
-  # Llama al core (incluye FIX ordinal + ajuste μ monótono)
+
   core <- calcular_mu_num_card_ord(
     Datos                 = Datos,
     vars_numeric_targets  = vars_numeric_original,
@@ -1387,10 +1194,10 @@ calcular_todo_Mu <- function(Datos,
     max_bloques           = max_bloques
   )
   
-  tabla_detalle <- core$tabla_mu_detalle  # var_original, S, Mu, tipo_target
+  tabla_detalle <- core$tabla_mu_detalle  
   
   # 1) tabla_mu_modelos_todos (compatibilidad)
-  # Nota: requiere dplyr cargado.
+
   tabla_mu_modelos_todos <- tabla_detalle %>%
     dplyr::mutate(
       categoria         = NA_character_,
@@ -1430,18 +1237,29 @@ calcular_todo_Mu <- function(Datos,
 }
 
 ################################################################################
-#############################   EJEMPLO DE USO   ################################
+# 18. EJECUCIÓN DE LA MEDIDA DIFUSA μ
 ################################################################################
-# Ejemplo completo de uso + tests de consistencia
-# Compatible con:
-# - μ monótono (μ_best(S))
-# - targets numéricos, cardinales y ordinales
+#
+# Objetivo:
+# Aplicar el procedimiento completo de cálculo de μ sobre los datasets
+# de análisis definidos previamente.
+#
+# Configuración:
+# - Definición de variables objetivo.
+# - Definición de variables explicativas.
+# - Cálculo de μ para todas las coaliciones posibles.
+#
+# Resultado:
+# - Obtención de la tabla detallada de μ.
+# - Obtención de la matriz μ.
+# - Preparación de resultados para análisis posteriores.
+#
 ################################################################################
 
 library(dplyr)
 
 ###############################################################################
-# DEFINICIÓN DE VARIABLES
+# DEFINICIÓN DE LAS VARIABLES DEL DATASET
 ###############################################################################
 
 vars_numeric_original_y      <- c("Age", "Cho")
@@ -1453,7 +1271,7 @@ vars_ordinal_X_y  <- c("Ris")
 
 
 ###############################################################################
-# CÁLCULO DE μ PARA DOS DATASETS (COMPARACIÓN)
+# APLICACIÓN DE LA MEDIDA DIFUSA μ AL DATASET
 ###############################################################################
 
 res_Mu_y <- calcular_todo_Mu(
@@ -1480,18 +1298,40 @@ res_Mu_log <- calcular_todo_Mu(
 
 
 ################################################################################
+# 19. VALIDACIÓN DE CONSISTENCIA DE LA MATRIZ μ
 ################################################################################
-# TESTS DE CONSISTENCIA PARA MATRIZ μ_j(S)
-################################################################################
-# - test_mu_vacio(): μ(empty) = 0
-# - test_mu_variable_en_S(): μ(v | S) = 1 si v ∈ S
-# - test_mu_rango(): μ ∈ [0,1]
+#
+# Objetivo:
+# Verificar que los valores obtenidos para la medida difusa μ cumplen
+# las propiedades teóricas definidas en la metodología.
+#
+# Validaciones realizadas:
+#
+# 1. Coalición vacía:
+#    μ(empty) = 0
+#
+# 2. Inclusión de la variable objetivo:
+#    μ(v,S) = 1 cuando la variable objetivo pertenece a S
+#
+# 3. Acotación:
+#    0 ≤ μ ≤ 1
+#
+# Resultado:
+# - Confirmación de la consistencia matemática de la matriz μ.
+#
 ################################################################################
 
 
 ###############################################################################
-# TEST 1: μ(empty) = 0
+# 19.1 TEST 1: VALIDACIÓN DE LA COALICIÓN VACÍA
 ###############################################################################
+#
+# Propiedad verificada:
+# - La coalición vacía no aporta capacidad predictiva.
+#
+# Condición esperada:
+# - μ(empty) = 0 para todas las variables objetivo.
+
 
 test_mu_vacio <- function(matriz_mu, tol = 1e-10){
   
@@ -1517,12 +1357,19 @@ test_mu_vacio <- function(matriz_mu, tol = 1e-10){
 
 
 ###############################################################################
-# TEST 2: μ(v | S) = 1 cuando v ∈ S
+# 19.2 TEST 2: VALIDACIÓN DE LA INCLUSIÓN DE LA VARIABLE OBJETIVO
 ###############################################################################
-# NOTA IMPORTANTE (CAMBIO CLAVE):
-# - Con μ_monótono, esto DEBE cumplirse siempre, incluso si el modelo directo
-#   empeoraba, porque μ_best(S) ≥ μ_best({v}) = 1
-###############################################################################
+#
+# Propiedad verificada:
+# - Una variable debe poder predecirse perfectamente cuando forma
+#   parte de la propia coalición.
+#
+# Condición esperada:
+# - μ(v,S) = 1 cuando la variable objetivo pertenece a S.
+#
+# Observación:
+# - Tras la corrección monótona, esta propiedad debe cumplirse en todas
+#   las coaliciones que contienen la variable objetivo.
 
 test_mu_variable_en_S <- function(matriz_mu, tol = 1e-8){
   
@@ -1557,8 +1404,18 @@ test_mu_variable_en_S <- function(matriz_mu, tol = 1e-8){
 
 
 ###############################################################################
-# TEST 3: μ ∈ [0,1]
+# 19.3 TEST 3: VALIDACIÓN DEL RANGO DE μ
 ###############################################################################
+#
+# Propiedad verificada:
+# - La medida difusa μ debe permanecer acotada.
+#
+# Condición esperada:
+# - 0 ≤ μ ≤ 1
+#
+# Interpretación:
+# - μ = 0 representa ausencia de mejora respecto al modelo vacío.
+# - μ = 1 representa capacidad predictiva máxima.
 
 test_mu_rango <- function(matriz_mu, tol = 1e-12){
   
@@ -1579,14 +1436,23 @@ test_mu_rango <- function(matriz_mu, tol = 1e-12){
 }
 
 
-################################################################################
-# PREPARACIÓN ROBUSTA DE matriz_mu (RECOMENDADO)
-################################################################################
-# Esto evita problemas de:
-# - factors encubiertos
-# - columnas tipo character
-# - comparaciones numéricas incorrectas
-################################################################################
+###############################################################################
+# 20. PREPARACIÓN DE LA MATRIZ μ PARA VALIDACIÓN Y POSTERIOR TRATAMIENTO
+###############################################################################
+#
+# Objetivo:
+# Garantizar que todos los valores de la matriz μ se encuentran en
+# formato numérico antes de ejecutar los tests de consistencia.
+#
+# Tratamiento aplicado:
+# - Conversión de posibles factores a formato numérico.
+# - Conversión de posibles caracteres a formato numérico.
+# - Conservación de los nombres originales de las coaliciones.
+#
+# Resultado:
+# - Matriz μ preparada para los procesos de validación y comprobación.
+#
+###############################################################################
 
 matriz_mu <- res_Mu_y$matriz_mu
 
@@ -1598,44 +1464,98 @@ matriz_mu <- as.data.frame(
 rownames(matriz_mu) <- rownames(res_Mu_y$matriz_mu)
 
 
-################################################################################
-# EJECUCIÓN DE LOS TESTS
-################################################################################
+###############################################################################
+# 21. EJECUCIÓN DE LAS VALIDACIONES DE CONSISTENCIA
+###############################################################################
+#
+# Objetivo:
+# Verificar que la matriz μ obtenida cumple las propiedades teóricas
+# definidas para la medida difusa.
+#
+# Validaciones ejecutadas:
+#
+# 1. Coalición vacía:
+#    μ(empty) = 0
+#
+# 2. Inclusión de la variable objetivo:
+#    μ(v,S) = 1 cuando la variable pertenece a la coalición S
+#
+# 3. Acotación de la medida:
+#    0 ≤ μ ≤ 1
+#
+# Resultado:
+# - Confirmación de la consistencia matemática de la matriz μ.
+# - Identificación de posibles desviaciones respecto a la metodología.
+#
+###############################################################################
+
+test_mu_vacio(matriz_mu)
+
+test_mu_variable_en_S(matriz_mu)
+
+test_mu_rango(matriz_mu)
 
 test_mu_vacio(matriz_mu)
 test_mu_variable_en_S(matriz_mu)
 test_mu_rango(matriz_mu)
 
+
+# ============================================================================
+# 22. ALMACENAMIENTO DE RESULTADOS
+# ============================================================================
+#
+# Objetivo:
+# Guardar los resultados obtenidos de la medida difusa μ para su
+# análisis y reutilización posterior.
+#
+# Formato utilizado:
+# - CSV
+#
+# Resultados almacenados:
+# - Tabla detallada de valores μ.
+# - Matriz μ final.
+#
+# Resultado:
+# - Archivos CSV almacenados en la carpeta de salida definida.
+#
+# ============================================================================
+
+
 ###############################################################################
-# CONFIGURACIÓN GLOBAL DE SALIDA
+# CONFIGURACIÓN DE LA CARPETA DE SALIDA
 ###############################################################################
 
-RUTA_SALIDA <- "C:/Users/danis/OneDrive/Escritorio/Phd/4.1. Escritura de Tesis/Debug"
+RUTA_SALIDA <- "C:/Users/..."
 
+###############################################################################
+# FUNCIÓN DE GUARDADO EN CSV
+###############################################################################
 
-# ============================================================
-# Helper para guardar salidas de texto (debug) en un .txt
-# ============================================================
-
-guardar_txt <- function(nombre_archivo, contenido) {
+guardar_csv <- function(datos, nombre_archivo) {
   
-  # Validaciones
-  if (!is.character(nombre_archivo) || length(nombre_archivo) != 1) {
-    stop("guardar_txt: 'nombre_archivo' debe ser un string.")
-  }
-  
-  if (!is.character(contenido)) {
-    stop("guardar_txt: 'contenido' debe ser un vector character.")
-  }
-  
-  # Crear directorio si no existe
   if (!dir.exists(RUTA_SALIDA)) {
     dir.create(RUTA_SALIDA, recursive = TRUE)
   }
   
-  ruta_completa <- file.path(RUTA_SALIDA, nombre_archivo)
-  
-  writeLines(contenido, con = ruta_completa, useBytes = TRUE)
+  write.csv(
+    datos,
+    file = file.path(RUTA_SALIDA, nombre_archivo),
+    row.names = FALSE
+  )
   
   invisible(TRUE)
 }
+
+###############################################################################
+# ALMACENAMIENTO DE RESULTADOS
+###############################################################################
+
+guardar_csv(
+  res_Mu_y$tabla_mu_variables,
+  "tabla_mu_variables.csv"
+)
+
+guardar_csv(
+  res_Mu_y$matriz_mu,
+  "matriz_mu.csv"
+)

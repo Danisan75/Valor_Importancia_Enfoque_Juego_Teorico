@@ -1,14 +1,65 @@
+getwd()
 
-###############################################################################
-# 1. GENERACIÓN DE SUBMUESTRAS POR COMBINATORIA (MÉTODO I, SIN BUCLES EXPLÍCITOS)
-###############################################################################
-# - Genera submuestras contrafactuales por combinatoria de predictores
-# - Una submuestra por instancia y por combinación S
-# - Válido para regresión y clasificación
-# - Incluye comprobaciones automáticas de consistencia
-###############################################################################
+# ============================================================================
+# 1. GENERACIÓN DE SUBMUESTRAS CONTRAFACTUALES POR COALICIONES
+# ============================================================================
+#
+# Objetivo:
+# Generar las submuestras contrafactuales necesarias para evaluar la
+# contribución de todas las coaliciones posibles de variables explicativas.
+#
+# Generación de coaliciones:
+# - Se generan todas las combinaciones posibles de predictores.
+# - Se incluye explícitamente la coalición vacía.
+#
+# Ejemplo:
+# Si los predictores son:
+#
+# A, B y C
+#
+# Se generan las coaliciones:
+#
+# empty
+# A
+# B
+# C
+# A+B
+# A+C
+# B+C
+# A+B+C
+#
+# Construcción de submuestras:
+# - Para cada coalición S y para cada instancia i:
+#     · Las variables pertenecientes a S se mantienen fijas con los
+#       valores de la instancia i.
+#     · El resto de variables conservan su variabilidad original.
+#
+# Ejemplo:
+#
+# Coalición:
+# S = {A, B}
+#
+# Instancia:
+# i = 5
+#
+# Resultado:
+# - A y B permanecen fijas con los valores de la instancia 5.
+# - El resto de variables recorren toda la base de datos.
+#
+# Validación:
+# - Se comprueba que las variables fijadas permanecen constantes.
+# - Se comprueba que las variables no incluidas en S conservan sus
+#   valores originales.
+#
+# Resultado:
+# - Una submuestra por coalición y por instancia.
+# - Conjunto completo de submuestras contrafactuales asociadas a todas
+#   las coaliciones generadas.
+#
+# ============================================================================
 
-generar_submuestras_combinatoria <- function(df, target) {generar_submuestras_combin <- as.data.frame(df)
+generar_submuestras_combinatoria <- function(df, target) {
+as.data.frame(df)
 n  <- nrow(df)
 
 #---------------------------
@@ -118,46 +169,41 @@ list(
 }
 
 
-
-
-###############################################################################
-# 2. PREPARAR X E Y (GLOBAL Y SUBMUESTRAS) – PARA XGBOOST
-###############################################################################
-# Este bloque se encarga de transformar:
+# ============================================================================
+# 2. PREPARACIÓN DE X E Y PARA LAS COALICIONES GENERADAS
+# ============================================================================
 #
-#   - El dataset original (global)
-#   - Cada submuestra contrafactual
+# Objetivo:
+# Construir las matrices de predictores (X) y la variable objetivo (y)
+# asociadas a cada una de las coaliciones generadas previamente.
 #
-# en matrices numéricas coherentes que puedan ser usadas por XGBoost.
+# Metodología:
+# - Para cada coalición S se construye una matriz de predictores X.
+# - La información disponible depende de las variables incluidas en S.
 #
-# OBJETIVO CLAVE:
-# - Garantizar que el modelo XGBoost global y las submuestras usan
-#   exactamente los mismos predictores (mismas columnas, mismo orden).
+# Ejemplos:
 #
-# IMPORTANTE:
-# - Estas funciones NO entrenan ningún modelo.
-# - Solo preparan X (predictores) e y (target).
-# - Funcionan igual para regresión y clasificación.
-###############################################################################
-
-###############################################################################
-# 2.1 PREPARAR X/Y DESDE UNA SUBMUESTRA CONTRAFACTUAL
-###############################################################################
-# Se usa cuando ya hemos construido una submuestra (Método I / II).
+# S = empty
+# - No se dispone de información de ninguna variable en la instancia fijada.
 #
-# ENTRADA:
-# - df_sub   : submuestra contrafactual (data.frame)
-# - target   : nombre del target
-# - vars_pred: vector de predictores que DEBEN estar presentes
+# S = {A}
+# - Solo se dispone de la información de la variable A en la instancia fijada.
 #
-# SALIDA:
-# - X_mat: matriz numérica de predictores (lista para xgboost)
-# - y    : vector del target (sin transformar aquí)
+# S = {A, B}
+# - Solo se dispone de la información de las variables A y B
+#   en la instancia fijada.
 #
-# COMPROBACIONES:
-# - Que todas las variables predictoras existen en la submuestra
-# - Que model.matrix produce columnas válidas
-###############################################################################
+# S = {A, B, C}
+# - Solo se dispone de la información de las variables A, B y C
+#   en la instancia fijada.
+#
+# Resultado:
+# - Para cada coalición se construye una matriz de predictores X.
+# - Se conserva la variable objetivo y asociada.
+# - La información disponible en X depende de las variables
+#   incluidas en la coalición considerada.
+#
+# ============================================================================
 
 preparar_xy_desde_submuestra <- function(df_sub, target, vars_pred) {
   
@@ -220,20 +266,30 @@ preparar_xy_desde_submuestra <- function(df_sub, target, vars_pred) {
   )
 }
 
-###############################################################################
-# 2.2 PREPARAR X/Y DEL DATASET GLOBAL
-###############################################################################
-# Se usa para entrenar el modelo XGBoost global.
+# ============================================================================
+# 3. PREPARACIÓN DE X E Y DEL DATASET GLOBAL
+# ============================================================================
 #
-# DIFERENCIA CON LA FUNCIÓN ANTERIOR:
-# - Aquí se puede omitir vars_pred, y se infieren automáticamente
-#   como todas las variables excepto el target.
+# Objetivo:
+# Construir la matriz global de predictores (X) y la variable objetivo (y)
+# utilizando toda la información disponible en la base de datos.
 #
-# COMPROBACIONES:
-# - El target existe
-# - Hay predictores
-# - model.matrix genera columnas válidas
-###############################################################################
+# Metodología:
+# - Se selecciona una variable objetivo.
+# - La matriz X se construye utilizando todas las variables restantes.
+# - La variable objetivo no forma parte de la matriz de predictores.
+# - Se conserva toda la variabilidad original de la base de datos.
+#
+# Interpretación:
+# - Representa el escenario de conocimiento completo.
+# - Toda la información disponible, excepto la variable objetivo,
+#   puede utilizarse para su predicción.
+#
+# Resultado:
+# - Matriz global de predictores (X).
+# - Variable objetivo asociada (y).
+#
+# ============================================================================
 
 preparar_xy_global <- function(df, target, vars_pred = NULL) {
   
@@ -308,20 +364,36 @@ preparar_xy_global <- function(df, target, vars_pred = NULL) {
 }
 
 
-###############################################################################
-# 3. MODELO XGBOOST GLOBAL Y K = MEDIA DE LAS PREDICCIONES
-###############################################################################
-# Este bloque:
+# ============================================================================
+# 4. CONSTRUCCIÓN DEL MODELO GLOBAL Y CÁLCULO DE K (XGBOOST)
+# ============================================================================
 #
-# 1) Prepara la matriz X y el vector y del dataset ORIGINAL
-# 2) Ajusta un ÚNICO modelo XGBoost global (regresión o clasificación)
-# 3) Calcula K = media de las predicciones del modelo sobre el dataset original
+# Objetivo:
+# Construir un modelo global utilizando toda la información disponible
+# y obtener el valor medio de sus predicciones.
 #
-# IMPORTANTE:
-# - El modelo entrenado es FIJO y se reutiliza después
-# - No se entrena ningún modelo por submuestra
-# - Funciona igual para regresión y clasificación
-##########################################################################
+# Metodología:
+# - Se utiliza la matriz global de predictores X construida previamente.
+# - Se utiliza la variable objetivo y asociada.
+# - Se ajusta un único modelo XGBoost utilizando toda la base de datos.
+# - El modelo se entrena una única vez.
+#
+# Interpretación:
+# - Representa el escenario de conocimiento completo.
+# - Todas las variables predictoras disponibles pueden utilizarse
+#   simultáneamente para predecir la variable objetivo.
+#
+# Cálculo de K:
+# - Una vez ajustado el modelo global, se calculan las predicciones
+#   para todas las observaciones de la base de datos.
+# - K se define como la media de dichas predicciones.
+#
+# Resultado:
+# - Modelo global XGBoost entrenado.
+# - Predicciones asociadas al modelo global.
+# - Valor K correspondiente a la media de las predicciones.
+#
+# ============================================================================
 
 
 ajustar_xgb_global <- function(df,
@@ -421,29 +493,44 @@ ajustar_xgb_global <- function(df,
 
 
 
-###############################################################################
-# 4. ALINEAR MATRIZ X DE SUBMUESTRA CON EL MODELO GLOBAL (XGBOOST)
-###############################################################################
-# Este bloque garantiza que la matriz X construida a partir de una submuestra
-# contrafactual sea COMPATIBLE con el modelo XGBoost global entrenado.
+# ============================================================================
+# 5. ALINEACIÓN DE LAS COALICIONES CON EL MODELO GLOBAL
+# ============================================================================
 #
-# ¿Por qué es necesario?
-# - El modelo global se entrenó con un conjunto fijo de columnas (feature_names).
-# - En una submuestra, model.matrix puede:
-#     * no generar algunas columnas (niveles ausentes),
-#     * generar columnas en distinto orden.
-# - XGBoost requiere que:
-#     * el número de columnas sea EXACTAMENTE el mismo,
-#     * el orden de las columnas sea EXACTAMENTE el mismo.
+# Objetivo:
+# Adaptar las matrices X construidas para cada coalición a la misma
+# estructura utilizada por el modelo global.
 #
-# Estrategia:
-# 1) Construir X_raw desde la submuestra usando preparar_xy_desde_submuestra().
-# 2) Crear una matriz X_aligned con TODAS las columnas del modelo global,
-#    inicializadas a 0.
-# 3) Copiar únicamente las columnas comunes entre X_raw y feature_names.
+# Metodología:
+# - El modelo global se construye utilizando toda la información
+#   disponible de la base de datos.
+# - Cada coalición S representa un nivel distinto de conocimiento
+#   sobre una instancia.
+# - Para poder comparar todas las coaliciones de forma consistente,
+#   todas las matrices X deben compartir la misma estructura.
 #
-# El resultado es una matriz segura para predict().
-###############################################################################
+# Ejemplos:
+#
+# S = empty
+# - No se dispone de información de ninguna variable en la instancia fijada.
+#
+# S = {A}
+# - Solo se dispone de la información de la variable A en la instancia fijada.
+#
+# S = {A, B}
+# - Solo se dispone de la información de las variables A y B
+#   en la instancia fijada.
+#
+# S = {A, B, C}
+# - Se dispone de la información de todas las variables
+#   en la instancia fijada.
+#
+# Resultado:
+# - Todas las coaliciones quedan representadas mediante la misma
+#   estructura de variables utilizada por el modelo global.
+# - Las matrices resultantes son comparables entre sí.
+#
+# ============================================================================
 
 preparar_X_sub_para_global <- function(df_sub,
                                        target,
@@ -494,22 +581,49 @@ preparar_X_sub_para_global <- function(df_sub,
   X_aligned
 }
 
-###############################################################################
-# 5. APLICAR EL MODELO XGB GLOBAL A TODAS LAS SUBMUESTRAS
-###############################################################################
-# Este bloque:
+# ============================================================================
+# 6. APLICACIÓN DEL MODELO GLOBAL XGBOOST A LAS COALICIONES GENERADAS
+# ============================================================================
 #
-# 1) Toma las submuestras contrafactuales generadas en el Paso 1
-# 2) Alinea cada submuestra al espacio del modelo XGBoost global
-# 3) Aplica el MISMO modelo global (ya entrenado) a cada submuestra
-# 4) Guarda las predicciones fila a fila en una nueva columna: pred_xgb
+# Objetivo:
+# Aplicar el modelo global XGBoost previamente ajustado a todas las
+# submuestras asociadas a las distintas coaliciones generadas.
 #
-# IMPORTANTE:
-# - NO se entrena ningún modelo nuevo
-# - NO se recalculan parámetros
-# - El modelo global es FIJO
-# - Funciona igual para regresión y clasificación
-###############################################################################
+# Metodología:
+# - Se utiliza un único modelo global XGBoost previamente entrenado.
+# - El modelo permanece fijo durante todo el proceso.
+# - Para cada coalición S se utiliza la matriz X construida y alineada
+#   previamente.
+# - Se generan las predicciones asociadas a cada coalición.
+#
+# Ejemplos:
+#
+# S = empty
+# - Predicción utilizando una coalición sin información disponible.
+#
+# S = {A}
+# - Predicción utilizando únicamente la información de A
+#   en la instancia fijada.
+#
+# S = {A, B}
+# - Predicción utilizando únicamente la información de A y B
+#   en la instancia fijada.
+#
+# S = {A, B, C}
+# - Predicción utilizando la información de A, B y C
+#   en la instancia fijada.
+#
+# Interpretación:
+# - Todas las predicciones se obtienen utilizando exactamente
+#   el mismo modelo global XGBoost.
+# - Las diferencias observadas entre coaliciones se deben únicamente
+#   a la información disponible en cada una de ellas.
+#
+# Resultado:
+# - Predicciones asociadas a cada coalición y a cada instancia.
+# - Conservación del valor K calculado a partir del modelo global.
+#
+# ============================================================================
 
 
 
@@ -592,52 +706,66 @@ ajustar_xgb_a_res <- function(res,
 
 
 
-###############################################################################
-# PASO 6. NOMENCLATURA DE H(S)
-###############################################################################
-# OBJETIVO DEL PASO 6:
-# -------------------
-# Este paso NO realiza ningún cálculo numérico.
-# Su único objetivo es asignar un nombre ÚNICO, COHERENTE y REPRODUCIBLE
-# a cada magnitud H(S), donde S es un conjunto de variables fijadas.
+# ============================================================================
+# 7. NOMENCLATURA DE H(S)
+# ============================================================================
 #
-# Esto es CRÍTICO porque:
-#  - Los valores H(i,S) se almacenan en tablas
-#  - Se comparan resultados entre:
-#       * submuestras guardadas
-#       * streaming
-#  - Si los nombres no coinciden exactamente, las tablas no se alinean,
-#    aunque los valores numéricos sean correctos.
+# Objetivo:
+# Generar una denominación única y reproducible para cada coalición S.
 #
-# Por tanto:
-#  - Este paso garantiza TRAZABILIDAD
-#  - NO afecta a K
-#  - NO afecta a H(i,S) numéricamente
-###############################################################################
+# Metodología:
+# - Cada coalición se identifica mediante las variables que la componen.
+# - A partir de dichas variables se construye una etiqueta H(S).
+# - La misma coalición produce siempre el mismo nombre.
+#
+# Ejemplos:
+#
+# S = empty
+# → H()
+#
+# S = {edad}
+# → H(eda)
+#
+# S = {edad, ingresos}
+# → H(eda_ing)
+#
+# S = {edad, ingresos, genero}
+# → H(eda_ing_gen)
+#
+# Resultado:
+# - Nombre único asociado a cada coalición S.
+# - Identificación consistente entre los distintos procesos del método.
+#
+# ============================================================================
 
 
-###############################################################################
-# 6.1 FUNCIÓN: nombre_H_desde_combo()
-###############################################################################
-# USO:
-# ----
-# Se utiliza cuando la combinación S viene codificada como STRING,
-# por ejemplo: "edad_ingresos_genero"
+# ============================================================================
+# 7.1 CONSTRUCCIÓN DEL NOMBRE H(S)
+# ============================================================================
 #
-# TRANSFORMACIÓN:
-#  - "edad_ingresos_genero"
-#      -> c("edad", "ingresos", "genero")
-#      -> c("eda", "ing", "gen")
-#      -> "H(eda_ing_gen)"
+# Objetivo:
+# Obtener la denominación H(S) a partir de una coalición representada
+# mediante un nombre de combinación.
 #
-# GARANTÍA:
-#  - Submuestras y streaming producirán el MISMO nombre para el MISMO S
-###############################################################################
+# Metodología:
+# - Se identifican las variables pertenecientes a la coalición.
+# - Se genera una abreviatura para cada variable.
+# - Se construye el nombre final H(S).
+#
+# Caso especial:
+# - La coalición vacía se representa como:
+#
+#     H()
+#
+# Resultado:
+# - Nombre canónico asociado a la coalición considerada.
+#
+# ============================================================================
 
 nombre_H_desde_combo <- function(combo) {
   
   #------------------------------------------------------------
-  # PASO 6.1.1: Validación de la entrada
+  # PASO 7.1.1: Validación de la entrada
   #------------------------------------------------------------
   stopifnot(
     is.character(combo),
@@ -647,7 +775,7 @@ nombre_H_desde_combo <- function(combo) {
   )
   
   #------------------------------------------------------------
-  # PASO 6.1.2: Caso especial — conjunto vacío
+  # PASO 7.1.2: Caso especial — conjunto vacío
   #------------------------------------------------------------
   # "empty" representa S = ∅ y DEBE producir siempre H()
   if (combo == "empty") {
@@ -655,7 +783,7 @@ nombre_H_desde_combo <- function(combo) {
   }
   
   #------------------------------------------------------------
-  # PASO 6.1.3: Separar variables fijadas
+  # PASO 7.1.3: Separar variables fijadas
   #------------------------------------------------------------
   vars_fijas <- strsplit(combo, "_", fixed = TRUE)[[1]]
   
@@ -665,7 +793,7 @@ nombre_H_desde_combo <- function(combo) {
   )
   
   #------------------------------------------------------------
-  # PASO 6.1.4: Abreviatura (3 primeras letras)
+  # PASO 7.1.4: Abreviatura (3 primeras letras)
   #------------------------------------------------------------
   abrevs <- substring(vars_fijas, 1, 3)
   
@@ -675,7 +803,7 @@ nombre_H_desde_combo <- function(combo) {
   )
   
   #------------------------------------------------------------
-  # PASO 6.1.5: Advertencia por colisiones (no bloqueante)
+  # PASO 7.1.5: Advertencia por colisiones (no bloqueante)
   #------------------------------------------------------------
   if (any(duplicated(abrevs))) {
     warning(
@@ -685,33 +813,60 @@ nombre_H_desde_combo <- function(combo) {
   }
   
   #------------------------------------------------------------
-  # PASO 6.1.6: Construcción final del nombre H(S)
+  # PASO 7.1.6: Construcción final del nombre H(S)
   #------------------------------------------------------------
   paste0("H(", paste(abrevs, collapse = "_"), ")")
 }
 
-###############################################################################
-# 6.2 FUNCIÓN: nombre_H_desde_vars()
-###############################################################################
-# USO:
-# ----
-# Se utiliza principalmente en STREAMING, cuando S viene como vector:
-#   c("edad", "ingresos", "genero")
+# ============================================================================
+# 7.2 CONSTRUCCIÓN DEL NOMBRE H(S) A PARTIR DE LAS VARIABLES DE LA COALICIÓN
+# ============================================================================
 #
-# Debe producir EXACTAMENTE el mismo nombre que nombre_H_desde_combo()
-###############################################################################
+# Objetivo:
+# Obtener una denominación única y reproducible para una coalición S
+# representada mediante el conjunto de variables que la forman.
+#
+# Metodología:
+# - Se identifican las variables pertenecientes a la coalición.
+# - Se genera una abreviatura para cada variable.
+# - Se construye el nombre final H(S).
+#
+# Ejemplos:
+#
+# S = ∅
+# → H()
+#
+# S = {edad}
+# → H(eda)
+#
+# S = {edad, ingresos}
+# → H(eda_ing)
+#
+# S = {edad, ingresos, genero}
+# → H(eda_ing_gen)
+#
+# Consistencia:
+# - La misma coalición produce siempre el mismo nombre.
+# - El resultado es consistente con la nomenclatura utilizada para
+#   el resto de coaliciones del método.
+#
+# Resultado:
+# - Nombre canónico asociado a la coalición considerada.
+#
+# ============================================================================
+
 
 nombre_H_desde_vars <- function(vars_fijas) {
   
   #------------------------------------------------------------
-  # PASO 6.2.1: Caso especial — conjunto vacío S = ∅
+  # PASO 7.2.1: Caso especial — conjunto vacío S = ∅
   #------------------------------------------------------------
   if (length(vars_fijas) == 0) {
     return("H()")
   }
   
   #------------------------------------------------------------
-  # PASO 6.2.2: Validación de entrada
+  # PASO 7.2.2: Validación de entrada
   #------------------------------------------------------------
   stopifnot(
     is.character(vars_fijas),
@@ -720,12 +875,12 @@ nombre_H_desde_vars <- function(vars_fijas) {
   )
   
   #------------------------------------------------------------
-  # PASO 6.2.3: Abreviatura (3 primeras letras)
+  # PASO 7.2.3: Abreviatura (3 primeras letras)
   #------------------------------------------------------------
   abrevs <- substring(vars_fijas, 1, 3)
   
   #------------------------------------------------------------
-  # PASO 6.2.4: Advertencia por colisiones (no bloqueante)
+  # PASO 7.2.4: Advertencia por colisiones (no bloqueante)
   #------------------------------------------------------------
   if (any(duplicated(abrevs))) {
     warning(
@@ -735,44 +890,64 @@ nombre_H_desde_vars <- function(vars_fijas) {
   }
   
   #------------------------------------------------------------
-  # PASO 6.2.5: Construcción final del nombre H(S)
+  # PASO 7.2.5: Construcción final del nombre H(S)
   #------------------------------------------------------------
   paste0("H(", paste(abrevs, collapse = "_"), ")")
 }
 
 
-###############################################################################
-# PASO 7. TABLA H(i,S) POR INSTANCIA
-###############################################################################
-# OBJETIVO:
-# ---------
-# Construir una tabla donde:
-#   - Cada FILA representa una instancia i
-#   - Cada COLUMNA H(S) representa una combinación de variables fijadas S
-#   - Cada celda contiene:
+# ============================================================================
+# 8. CONSTRUCCIÓN DE LA TABLA H(i,S)
+# ============================================================================
 #
-#       H(i,S) = media de las predicciones del modelo global
-#                sobre la submuestra contrafactual (i,S)
+# Objetivo:
+# Calcular los valores H(i,S) para todas las instancias y para todas
+# las coaliciones generadas previamente.
 #
-# Además, se añade K = H(∅) como referencia global.
+# Metodología:
+# - Para cada coalición S.
+# - Para cada instancia i.
+# - Se utilizan las predicciones obtenidas mediante la aplicación del
+#   modelo global a la submuestra correspondiente.
+# - H(i,S) se define como la media de dichas predicciones.
 #
-# IMPORTANTE:
-#  - NO se hace ninguna transformación de datos
-#  - NO se recalcula ningún modelo
-#  - SOLO se agregan (media) predicciones ya calculadas
-###############################################################################
+# Interpretación:
+#
+# H(i,S)
+#
+# representa la predicción media obtenida cuando únicamente se dispone
+# de la información contenida en la coalición S para la instancia i.
+#
+# Ejemplos:
+#
+# H(i,∅)
+# - No se dispone de información de ninguna variable en la instancia.
+#
+# H(i,{A})
+# - Solo se dispone de la información de la variable A.
+#
+# H(i,{A,B})
+# - Solo se dispone de la información de las variables A y B.
+#
+# H(i,{A,B,C})
+# - Se dispone de la información de las variables A, B y C.
+#
+# Valor de referencia:
+# - K se define como H(∅).
+# - Representa el valor de referencia asociado a la ausencia total
+#   de información.
+#
+# Resultado:
+# - Una tabla con una fila por instancia.
+# - Una columna H(S) para cada coalición.
+# - Una columna K como referencia global.
+#
+# ============================================================================
 
 tabla_H_por_instancia <- function(res_modelo,
                                   nombre_col_pred = "pred_xgb") {
   
-  ###########################################################################
-  # 7.1 Extraer submuestras con predicciones
-  ###########################################################################
-  # res_modelo$submuestras_pred tiene la estructura:
-  #   combinación S
-  #     └─ instancia i
-  #          └─ data.frame con columna de predicción
-  ###########################################################################
+
   subm_pred <- res_modelo$submuestras_pred
   combos    <- names(subm_pred)
   
@@ -781,12 +956,7 @@ tabla_H_por_instancia <- function(res_modelo,
     stop("No hay combinaciones en res_modelo$submuestras_pred.")
   }
   
-  ###########################################################################
-  # 7.2 Obtener el conjunto de instancias (común a todas las combinaciones)
-  ###########################################################################
-  # Todas las combinaciones S tienen las mismas instancias,
-  # así que usamos la primera como referencia.
-  ###########################################################################
+
   primera_combo <- combos[1]
   lista_inst    <- subm_pred[[primera_combo]]
   inst_names    <- names(lista_inst)
@@ -796,9 +966,7 @@ tabla_H_por_instancia <- function(res_modelo,
   inst_ids   <- as.integer(sub("instancia_", "", inst_names))
   inst_orden <- sort(inst_ids)
   
-  ###########################################################################
-  # 7.3 Dimensiones de la tabla H(i,S)
-  ###########################################################################
+
   n_inst <- length(inst_orden)   # nº de instancias
   n_comb <- length(combos)       # nº de combinaciones S
   
@@ -806,9 +974,7 @@ tabla_H_por_instancia <- function(res_modelo,
   mat_H     <- matrix(NA_real_, nrow = n_inst, ncol = n_comb)
   H_nombres <- character(n_comb)
   
-  ###########################################################################
-  # 7.4 Bucle principal: combinaciones S
-  ###########################################################################
+
   for (j in seq_along(combos)) {
     
     combo        <- combos[j]
@@ -820,9 +986,7 @@ tabla_H_por_instancia <- function(res_modelo,
     # Submuestras de todas las instancias para esta combinación S
     lista_inst_combo <- subm_pred[[combo]]
     
-    #########################################################################
-    # 7.5 Bucle interno: instancias i
-    #########################################################################
+
     for (inst_name in names(lista_inst_combo)) {
       
       # Identificador numérico de la instancia
@@ -837,23 +1001,16 @@ tabla_H_por_instancia <- function(res_modelo,
       if (!(nombre_col_pred %in% names(df_sub))) {
         stop(
           "Falta columna '", nombre_col_pred,
-          "' en una submuestra. ¿Se ha ejecutado correctamente el Paso 5?"
+          "' en una submuestra. ¿Se ha ejecutado correctamente el paso anterior?"
         )
       }
       
-      #######################################################################
-      # 7.6 Cálculo central del método
-      #######################################################################
-      # H(i,S) = media de las predicciones del modelo global
-      #          sobre la submuestra contrafactual (i,S)
-      #######################################################################
+
       mat_H[fila_i, j] <- mean(df_sub[[nombre_col_pred]], na.rm = TRUE)
     }
   }
   
-  ###########################################################################
-  # 7.7 Construcción de la tabla final
-  ###########################################################################
+
   colnames(mat_H) <- H_nombres
   
   tabla <- data.frame(
@@ -863,9 +1020,7 @@ tabla_H_por_instancia <- function(res_modelo,
     check.names = FALSE
   )
   
-  ###############################################################################
-  # 7.8 Añadir K = H(∅) como referencia global (ROBUSTO)
-  ###############################################################################
+
   
   # Nombre canónico de H(∅)
   H_VACIO <- "H()"
@@ -876,14 +1031,14 @@ tabla_H_por_instancia <- function(res_modelo,
   # Comprobaciones defensivas
   if (length(col_H_empty) == 0) {
     stop(
-      "PASO 7.8: no se encuentra la columna '", H_VACIO, 
+      "No se encuentra la columna '", H_VACIO, 
       "' en la tabla H(i,S)."
     )
   }
   
   if (length(col_H_empty) > 1) {
     stop(
-      "PASO 7.8: hay más de una columna '", H_VACIO, 
+      "Hay más de una columna '", H_VACIO, 
       "'. Los nombres H(S) no son únicos."
     )
   }
@@ -894,144 +1049,139 @@ tabla_H_por_instancia <- function(res_modelo,
   # K debe ser único
   if (length(K_calculado) != 1 || is.na(K_calculado)) {
     stop(
-      "PASO 7.8: K = H(∅) no es único o es NA. ",
+      "K = H(∅) no es único o es NA. ",
       "Revisa las predicciones del modelo global."
     )
   }
   
-  # Añadir K como columna explícita
+  # Añadir K = H(∅)
   tabla$K <- K_calculado
   
-  
-  ###########################################################################
-  # 7.9 Salida
-  ###########################################################################
-  # Tabla con:
-  #   - una fila por instancia
-  #   - una columna por H(S)
-  #   - una columna K (opcional)
-  ###########################################################################
+
   tabla
 }
 
-###############################################################################
-# PASO 8. CÁLCULO DE T(i,S) POR INSTANCIA
-###############################################################################
-# DEFINICIÓN:
-# -----------
-# Para cada instancia i y cada combinación S se calcula:
+# ============================================================================
+# 9. CÁLCULO DE T(i,S)
+# ============================================================================
 #
-#   T(i,S) = H(i,S) - K
+# Objetivo:
+# Calcular el efecto asociado a cada coalición S para cada instancia i.
 #
-# donde:
-#   - H(i,S) es la media de las predicciones del modelo global
-#     sobre la submuestra contrafactual (i,S)
-#   - K = H(∅) es el valor base global (media de predicciones globales)
+# Metodología:
+# - Se parte de la tabla H(i,S) calculada previamente.
+# - Se utiliza K = H(∅) como valor de referencia.
+# - Para cada instancia i y cada coalición S se calcula:
 #
-# IMPORTANTE:
-#  - NO se recalcula ningún modelo
-#  - NO se transforman datos
-#  - SOLO se realiza una resta fila a fila
-#  - El resultado mide el efecto contrafactual relativo
-###############################################################################
+#     T(i,S) = H(i,S) - K
+#
+# Interpretación:
+# - T(i,S) mide la variación de predicción producida al disponer de la información
+#   contenida en la coalición S respecto al escenario sin información.
+#
+# Ejemplos:
+#
+# T(i,∅)
+# - Efecto asociado a la ausencia de información.
+#
+# T(i,{A})
+# - Efecto asociado a disponer únicamente de la información de A.
+#
+# T(i,{A,B})
+# - Efecto asociado a disponer únicamente de la información de A y B.
+#
+# T(i,{A,B,C})
+# - Efecto asociado a disponer de la información de A, B y C.
+#
+# Resultado:
+# - Una tabla con una fila por instancia.
+# - Una columna T(S) para cada coalición.
+#
+# ============================================================================
 
 calcular_T_por_instancia <- function(tabla_H_instancias) {
   
-  ###########################################################################
-  # 8.1 Comprobación de que existe K (H vacío)
-  ###########################################################################
-  # K es el ancla del método. Sin K no se puede calcular T(i,S).
-  ###########################################################################
+  # Comprobación de la existencia de K
   if (!("K" %in% names(tabla_H_instancias))) {
     stop(
-      "La tabla de entrada debe tener una columna 'K'. ",
-      "¿Has usado tabla_H_por_instancia(res_modelo)?"
+      "La tabla de entrada debe contener la columna 'K'."
     )
   }
   
-  ###########################################################################
-  # 8.2 Identificación de las columnas H(S)
-  ###########################################################################
-  # Se consideran columnas H(S) todas las que empiezan por 'H('
-  ###########################################################################
+  # Columnas H(S)
   h_cols <- grep("^H\\(", names(tabla_H_instancias), value = TRUE)
   
   if (length(h_cols) == 0) {
     stop(
-      "No se encuentran columnas que empiecen por 'H(' ",
-      "en la tabla de entrada."
+      "No se encuentran columnas H(S) en la tabla de entrada."
     )
   }
   
-  ###########################################################################
-  # 8.3 Extracción de K por instancia
-  ###########################################################################
-  # K puede estar repetido por fila, pero conceptualmente es el mismo valor.
-  ###########################################################################
+
   K_vec <- tabla_H_instancias$K
-  
-  ###########################################################################
-  # 8.4 Construcción de la matriz H(i,S)
-  ###########################################################################
-  # Convertimos las columnas H(S) a matriz numérica para operar eficientemente
-  ###########################################################################
   H_mat <- as.matrix(tabla_H_instancias[, h_cols, drop = FALSE])
   
-  ###########################################################################
-  # 8.5 Cálculo central del método
-  ###########################################################################
   # T(i,S) = H(i,S) - K
-  # Se resta K fila a fila usando sweep()
-  ###########################################################################
   T_mat <- sweep(H_mat, 1, K_vec, FUN = "-")
   
-  ###########################################################################
-  # 8.6 Renombrado de columnas: H(S) -> T(S)
-  ###########################################################################
+  # Renombrado H(S) -> T(S)
   colnames(T_mat) <- sub("^H", "T", colnames(T_mat))
   
-  ###########################################################################
-  # 8.7 Construcción de la tabla final T(i,S)
-  ###########################################################################
+  # Tabla final
   tabla_T <- data.frame(
     instancia   = tabla_H_instancias$instancia,
     T_mat,
     row.names   = NULL,
     check.names = FALSE
   )
-  
-  ###########################################################################
-  # 8.8 Salida
-  ###########################################################################
-  # Tabla con:
-  #  - una fila por instancia i
-  #  - una columna por T(S)
-  ###########################################################################
+
   tabla_T
 }
 
 
-###############################################################################
-# PASO 9. MODELO CLÁSICO GLOBAL (LM / GLM) Y CÁLCULO DE K
-###############################################################################
-# OBJETIVO:
-# ---------
-# Ajustar un ÚNICO modelo clásico global (lm o glm logístico) sobre el dataset
-# original y calcular el valor base K = H(∅).
+# ============================================================================
+# 10. CONSTRUCCIÓN DEL MODELO GLOBAL Y CÁLCULO DE K (MODELOS CLÁSICOS)
+# ============================================================================
 #
-# DEFINICIÓN DE K:
-# ----------------
-# - Regresión (lm):
-#     K = media de las predicciones del modelo
+# Objetivo:
+# Construir un modelo global clásico utilizando toda la información
+# disponible y obtener el valor de referencia K.
 #
-# - Clasificación (glm logístico):
-#     K = probabilidad asociada al intercepto (modelo vacío)
+# Metodología:
+# - Se utiliza toda la información disponible de la base de datos.
+# - Se selecciona una variable objetivo y un conjunto de predictores.
+# - Se ajusta un único modelo global utilizando toda la base de datos.
+# - El modelo se entrena una única vez.
 #
-# IMPORTANTE:
-#  - NO se ajustan modelos por submuestra
-#  - NO se transforman los datos
-#  - El modelo global queda FIJO y se reutiliza después
-###############################################################################
+# Modelos considerados:
+#
+# Regresión:
+# - Modelo lineal (LM).
+#
+# Clasificación:
+# - Modelo lineal generalizado binario (GLM Logístico).
+#
+# Interpretación:
+# - Representa el escenario de conocimiento completo.
+# - Todas las variables predictoras disponibles pueden utilizarse
+#   simultáneamente para predecir la variable objetivo.
+#
+# Cálculo de K:
+#
+# Regresión:
+# - K se define como la media de las predicciones obtenidas por el
+#   modelo global.
+#
+# Clasificación:
+# - K se define como la probabilidad asociada al intercepto del
+#   modelo logístico.
+#
+# Resultado:
+# - Modelo global entrenado.
+# - Predicciones asociadas al modelo global.
+# - Valor K utilizado como referencia en los cálculos posteriores.
+#
+# ============================================================================
 
 ajustar_modelo_global_clasico <- function(df,
                                           target,
@@ -1040,30 +1190,20 @@ ajustar_modelo_global_clasico <- function(df,
                                           verbose = 0,
                                           seed = NULL) {
   
-  ###########################################################################
-  # 9.1 Selección del tipo de modelo
-  ###########################################################################
+
   tipo_modelo <- match.arg(tipo_modelo)
   
   if (!is.null(seed)) {
     set.seed(seed)
   }
-  
-  ###########################################################################
-  # 9.2 Validaciones básicas del dataset
-  ###########################################################################
+
   df <- as.data.frame(df)
   
   if (!(target %in% names(df))) {
     stop("ERROR: el target '", target, "' no existe en el data.frame.")
   }
   
-  ###########################################################################
-  # 9.3 Definición de la fórmula del modelo
-  ###########################################################################
-  # Si no se pasa fórmula explícita:
-  #   - se usan todos los predictores excepto el target
-  ###########################################################################
+
   if (is.null(formula)) {
     
     vars_pred <- setdiff(names(df), target)
@@ -1089,9 +1229,7 @@ ajustar_modelo_global_clasico <- function(df,
   
   df_fit <- df
   
-  ###########################################################################
-  # 9.4 CASO CLASIFICACIÓN (GLM LOGÍSTICO)
-  ###########################################################################
+
   if (tipo_modelo == "clasificacion") {
     
     # --- Validación del target ---
@@ -1127,18 +1265,10 @@ ajustar_modelo_global_clasico <- function(df,
     # Predicciones del modelo completo
     pred <- stats::predict(modelo, type = "response")
     
-    #######################################################################
-    # K en clasificación:
-    # -------------------
-    # K = H(∅) = probabilidad del modelo vacío
-    #         = logistic(intercepto)
-    #######################################################################
+
     beta0 <- coef(modelo)[["(Intercept)"]]
     K     <- plogis(beta0)
-    
-    ###########################################################################
-    # 9.5 CASO REGRESIÓN (LM)
-    ###########################################################################
+
   } else {
     
     modelo <- stats::lm(
@@ -1148,17 +1278,10 @@ ajustar_modelo_global_clasico <- function(df,
     
     pred <- stats::predict(modelo, type = "response")
     
-    #######################################################################
-    # K en regresión:
-    # ---------------
-    # K = H(∅) = media de las predicciones del modelo global
-    #######################################################################
+
     K <- mean(pred, na.rm = TRUE)
   }
   
-  ###########################################################################
-  # 9.6 Salida
-  ###########################################################################
   list(
     modelo      = modelo,
     pred        = pred,
@@ -1172,47 +1295,56 @@ ajustar_modelo_global_clasico <- function(df,
 
 
 
-###############################################################################
-# PASO 10. APLICAR EL MODELO CLÁSICO GLOBAL (LM / GLM) A TODAS LAS SUBMUESTRAS
-###############################################################################
-# OBJETIVO:
-# ---------
-# Aplicar un ÚNICO modelo clásico global (lm o glm) ya entrenado a todas las
-# submuestras contrafactuales generadas en el PASO 1. Calcular predicciones
+# ============================================================================
+# 11. APLICACIÓN DEL MODELO GLOBAL CLÁSICO A LAS COALICIONES GENERADAS
+# ============================================================================
 #
-# Para cada combinación S y cada instancia i:
-#   - Se calcula la predicción del modelo global
-#   - Se guarda fila a fila en una nueva columna: pred_modelo
+# Objetivo:
+# Aplicar el modelo global clásico previamente ajustado a todas las
+# submuestras asociadas a las distintas coaliciones generadas.
 #
-# IMPORTANTE:
-#  - NO se reentrena ningún modelo
-#  - NO se recalculan parámetros
-#  - El modelo global es FIJO
-#  - Compatible con regresión y clasificación
-###############################################################################
+# Metodología:
+# - Se utiliza un único modelo global previamente entrenado.
+# - El modelo permanece fijo durante todo el proceso.
+# - Para cada coalición S se utilizan las submuestras generadas
+#   previamente.
+# - Se generan las predicciones asociadas a cada coalición.
+#
+# Modelos considerados:
+#
+# Regresión:
+# - Modelo lineal (LM).
+#
+# Clasificación:
+# - Modelo lineal generalizado binario (GLM Logístico).
+#
+# Interpretación:
+# - Todas las predicciones se obtienen utilizando exactamente
+#   el mismo modelo global.
+# - Las diferencias observadas entre coaliciones se deben únicamente
+#   a la información disponible en cada una de ellas.
+#
+# Resultado:
+# - Predicciones asociadas a cada coalición y a cada instancia.
+# - Conservación del valor K calculado a partir del modelo global.
+#
+# ============================================================================
 
 ajustar_modelo_clasico_a_res <- function(res,
                                          obj_global,
                                          verbose = 0) {
   
-  ###########################################################################
-  # 10.1 Extraer contrato del modelo global (PASO 9)
-  ###########################################################################
+
   target    <- obj_global$target
   vars_pred <- obj_global$vars_pred
   tipo      <- obj_global$tipo_modelo
   modelo    <- obj_global$modelo
   K_global  <- obj_global$K
-  
-  ###########################################################################
-  # 10.2 Submuestras originales (sin predicciones)
-  ###########################################################################
+
   subm_originales  <- res$submuestras
   submuestras_pred <- subm_originales
   
-  ###########################################################################
-  # 10.3 Bucle por combinaciones S
-  ###########################################################################
+
   for (combo in names(subm_originales)) {
     
     if (verbose > 0) {
@@ -1221,36 +1353,25 @@ ajustar_modelo_clasico_a_res <- function(res,
     
     lista_inst <- subm_originales[[combo]]
     
-    #########################################################################
-    # 10.4 Bucle por instancias i
-    #########################################################################
+
     for (inst_name in names(lista_inst)) {
       
       df_sub <- lista_inst[[inst_name]]
       
-      #######################################################################
-      # 10.5 Predicción con el modelo global clásico
-      #######################################################################
-      # lm  -> predict(..., type = "response")
-      # glm -> predict(..., type = "response")
-      #######################################################################
+
       pred_sub <- stats::predict(
         modelo,
         newdata = df_sub,
         type    = "response"
       )
       
-      #######################################################################
-      # 10.6 Guardar predicciones
-      #######################################################################
+
       df_sub$pred_modelo <- pred_sub
       submuestras_pred[[combo]][[inst_name]] <- df_sub
     }
   }
   
-  ###########################################################################
-  # 10.7 Salida
-  ###########################################################################
+
   list(
     submuestras_pred = submuestras_pred,
     target           = target,
@@ -1262,9 +1383,29 @@ ajustar_modelo_clasico_a_res <- function(res,
 }
 
 
-###############################################################################
-# 11. INSPECCIÓN DE SUBMUESTRAS (CON XGB)
-###############################################################################
+# ============================================================================
+# 12. INSPECCIÓN DE SUBMUESTRAS Y PREDICCIONES (XGBOOST)
+# ============================================================================
+#
+# Objetivo:
+# Facilitar la revisión manual de las submuestras generadas y de las
+# predicciones obtenidas mediante el modelo global XGBoost.
+#
+# Metodología:
+# - Se recorren todas las coaliciones generadas.
+# - Se recorren todas las instancias asociadas a cada coalición.
+# - Se muestran las variables fijadas en cada submuestra.
+# - Se muestran las predicciones almacenadas en cada submuestra..
+#
+# Utilidad:
+# - Verificación del funcionamiento del método.
+# - Comprobación de las variables fijadas en cada coalición.
+# - Inspección de las predicciones asociadas a cada submuestra.
+#
+# Resultado:
+# - Salida descriptiva en pantalla para revisión y depuración.
+#
+# ============================================================================
 
 inspeccionar_todas_las_submuestras_xgb <- function(res, res_xgb, n_filas = 10) {
   
@@ -1305,10 +1446,33 @@ inspeccionar_todas_las_submuestras_xgb <- function(res, res_xgb, n_filas = 10) {
     }
   }
 }
-
-###############################################################################
-# 11.bis. INSPECCIÓN DE SUBMUESTRAS (MODELO CLÁSICO)
-###############################################################################
+# ============================================================================
+# 13. INSPECCIÓN DE SUBMUESTRAS Y PREDICCIONES (MODELOS CLÁSICOS LM / GLM)
+# ============================================================================
+#
+# Objetivo:
+# Facilitar la revisión manual de las submuestras generadas y de las
+# predicciones obtenidas mediante modelos clásicos.
+#
+# Modelos considerados:
+# - Modelo lineal (LM).
+# - Modelo lineal generalizado binario (GLM Logístico).
+#
+# Metodología:
+# - Se recorren todas las coaliciones generadas.
+# - Se recorren todas las instancias asociadas a cada coalición.
+# - Se muestran las variables fijadas en cada submuestra.
+# - Se muestran las predicciones almacenadas en cada submuestra.
+#
+# Utilidad:
+# - Verificación del funcionamiento del método.
+# - Comprobación de las variables fijadas en cada coalición.
+# - Inspección de las predicciones asociadas a cada submuestra.
+#
+# Resultado:
+# - Salida descriptiva en pantalla para revisión y depuración.
+#
+# ============================================================================
 
 inspeccionar_todas_las_submuestras_clasico <- function(res, res_mod, n_filas = 10) {
   
@@ -1351,30 +1515,39 @@ inspeccionar_todas_las_submuestras_clasico <- function(res, res_mod, n_filas = 1
   }
 }
 
-###############################################################################
-# PASO 12. STREAMING XGB – H(i,S), T(i,S) + CHECKS, SIN SHAPLEY
-###############################################################################
-# OBJETIVO:
-# ---------
-# Calcular directamente H(i,S) y T(i,S) SIN almacenar submuestras.
+# ============================================================================
+# 14. CÁLCULO DIRECTO DE H(i,S) Y T(i,S) MEDIANTE STREAMING (XGBOOST)
+# ============================================================================
 #
-# Para cada combinación S y cada instancia i:
-#  - Se construye la submuestra contrafactual en memoria
-#  - Se aplica el modelo XGB global (FIJO)
-#  - Se calcula:
-#       H(i,S) = media de las predicciones
-#       T(i,S) = H(i,S) - K
+# Objetivo:
+# Calcular directamente los valores H(i,S) y T(i,S) sin almacenar las
+# submuestras contrafactuales generadas para cada coalición.
 #
-# IMPORTANTE:
-#  - NO se almacenan submuestras
-#  - NO se recalculan modelos
-#  - K = H(∅) se mantiene como ancla
-#  - Compatible con regresión y clasificación
-###############################################################################
-
-###############################################################################
-# PASO 12. STREAMING XGB – H(i,S), T(i,S) + CHECKS, SIN SHAPLEY
-###############################################################################
+# Metodología:
+# - Se utiliza el modelo global XGBoost previamente ajustado.
+# - Para cada coalición S y cada instancia i se genera la submuestra
+#   contrafactual únicamente durante el cálculo.
+# - Se calculan las predicciones asociadas a dicha submuestra.
+# - H(i,S) se define como la media de las predicciones obtenidas.
+# - T(i,S) se calcula utilizando:
+#
+#     T(i,S) = H(i,S) - K
+#
+# Interpretación:
+# - Produce los mismos valores H(i,S) y T(i,S) que el procedimiento
+#   basado en almacenamiento de submuestras.
+# - Reduce las necesidades de almacenamiento al generar cada
+#   submuestra únicamente cuando es necesaria.
+#
+# Valor de referencia:
+# - K = H(∅)
+#
+# Resultado:
+# - Tabla H(i,S).
+# - Tabla T(i,S).
+# - Verificación opcional de las coaliciones generadas.
+#
+# ============================================================================
 
 calcular_H_T_streaming_sin_shapley <- function(df,
                                                target,
@@ -1391,9 +1564,7 @@ calcular_H_T_streaming_sin_shapley <- function(df,
   df <- as.data.frame(df)
   n  <- nrow(df)
   
-  ###########################################################################
-  # 12.1 Modelo global XGB (si no se pasa)
-  ###########################################################################
+
   if (is.null(obj_global)) {
     obj_global <- ajustar_xgb_global(
       df      = df,
@@ -1412,9 +1583,7 @@ calcular_H_T_streaming_sin_shapley <- function(df,
   vars_pred     <- obj_global$vars_pred
   feature_names <- obj_global$feature_names
   
-  ###########################################################################
-  # 12.2 Combinaciones de predictores (✅ INCLUYE EL VACÍO)
-  ###########################################################################
+#
   lista_combos <- c(
     list(character(0)),  # S = ∅
     unlist(
@@ -1430,23 +1599,16 @@ calcular_H_T_streaming_sin_shapley <- function(df,
   
   n_comb <- length(lista_combos)
   
-  ###########################################################################
-  # 12.3 Estructuras H(i,S)
-  ###########################################################################
+
   H_mat     <- matrix(NA_real_, nrow = n, ncol = n_comb)
   H_nombres <- character(n_comb)
-  
-  ###########################################################################
-  # 12.4 Checks (opcional)
-  ###########################################################################
+
   checks_list <- if (guardar_checks) vector("list", n * n_comb) else NULL
   idx_check   <- 1L
   
   vars_all <- names(df)
   
-  ###########################################################################
-  # 12.5 Bucle principal streaming
-  ###########################################################################
+
   for (j in seq_along(lista_combos)) {
     
     cols_fijas <- lista_combos[[j]]
@@ -1480,14 +1642,10 @@ calcular_H_T_streaming_sin_shapley <- function(df,
       dsub     <- xgboost::xgb.DMatrix(data = X_sub)
       pred_sub <- predict(obj_global$modelo, newdata = dsub)
       
-      #######################################################################
-      # Cálculo central
-      #######################################################################
+
       H_mat[i, j] <- mean(pred_sub, na.rm = TRUE)
       
-      #######################################################################
-      # Checks (opcional)
-      #######################################################################
+
       if (guardar_checks) {
         ok_fijas <- all(
           sapply(cols_fijas, function(col) all(df_sub[[col]] == df[[col]][i]))
@@ -1512,9 +1670,7 @@ calcular_H_T_streaming_sin_shapley <- function(df,
     }
   }
   
-  ###########################################################################
-  # 12.6 Construcción tabla H(i,S)
-  ###########################################################################
+
   colnames(H_mat) <- H_nombres
   
   tabla_H_instancias <- data.frame(
@@ -1524,9 +1680,7 @@ calcular_H_T_streaming_sin_shapley <- function(df,
     check.names = FALSE
   )
   
-  ###########################################################################
-  # 12.7 K = H(∅) CALCULADO (NO EXTERNO)
-  ###########################################################################
+
   col_H_empty <- which(colnames(tabla_H_instancias) == "H()")
   
   K_calculado <- unique(tabla_H_instancias[[col_H_empty]])
@@ -1534,22 +1688,13 @@ calcular_H_T_streaming_sin_shapley <- function(df,
   
   tabla_H_instancias$K <- K_calculado
   
-  ###########################################################################
-  # 12.8 Tabla T(i,S)
-  ###########################################################################
   tabla_T_instancias <- calcular_T_por_instancia(tabla_H_instancias)
   
-  ###########################################################################
-  # 12.9 Checks finales
-  ###########################################################################
   verificacion <- NULL
   if (guardar_checks) {
     verificacion <- do.call(rbind, checks_list[seq_len(idx_check - 1L)])
   }
   
-  ###########################################################################
-  # 12.10 Salida
-  ###########################################################################
   list(
     obj_global         = obj_global,
     vars_pred          = vars_pred,
@@ -1562,31 +1707,47 @@ calcular_H_T_streaming_sin_shapley <- function(df,
 
 
 
-###############################################################################
-# PASO 13. STREAMING CLÁSICO (lm / glm) – H(i,S), T(i,S) + CHECKS
-###############################################################################
-# OBJETIVO:
-# ---------
-# Calcular directamente H(i,S) y T(i,S) SIN almacenar submuestras,
-# utilizando un modelo clásico global (lm o glm) ya entrenado.
+# ============================================================================
+# 15. CÁLCULO DIRECTO DE H(i,S) Y T(i,S) MEDIANTE STREAMING (LM / GLM)
+# ============================================================================
 #
-# Para cada combinación S y cada instancia i:
-#  - Se construye la submuestra contrafactual en memoria
-#  - Se aplica el modelo clásico global (FIJO)
-#  - Se calcula:
-#       H(i,S) = media de las predicciones
-#       T(i,S) = H(i,S) - K
+# Objetivo:
+# Calcular directamente los valores H(i,S) y T(i,S) sin almacenar las
+# submuestras contrafactuales generadas para cada coalición.
 #
-# IMPORTANTE:
-#  - NO se almacenan submuestras
-#  - NO se recalculan modelos
-#  - K = H(∅) se mantiene como ancla
-#  - Compatible con regresión y clasificación
-###############################################################################
-
-###############################################################################
-# PASO 13. STREAMING CLÁSICO (lm / glm) – H(i,S), T(i,S) + CHECKS
-###############################################################################
+# Metodología:
+# - Se utiliza un modelo global clásico previamente ajustado.
+# - Para cada coalición S y cada instancia i se genera la submuestra
+#   contrafactual únicamente durante el cálculo.
+# - Se calculan las predicciones asociadas a dicha submuestra.
+# - H(i,S) se define como la media de las predicciones obtenidas.
+# - T(i,S) se calcula utilizando:
+#
+#     T(i,S) = H(i,S) - K
+#
+# Modelos considerados:
+#
+# Regresión:
+# - Modelo lineal (LM).
+#
+# Clasificación:
+# - Modelo lineal generalizado binario (GLM Logístico).
+#
+# Interpretación:
+# - Produce los mismos valores H(i,S) y T(i,S) que el procedimiento
+#   basado en almacenamiento de submuestras.
+# - Reduce las necesidades de almacenamiento al generar cada
+#   submuestra únicamente cuando es necesaria.
+#
+# Valor de referencia:
+# - K = H(∅)
+#
+# Resultado:
+# - Tabla H(i,S).
+# - Tabla T(i,S).
+# - Verificación opcional de las coaliciones generadas.
+#
+# ============================================================================
 
 calcular_H_T_streaming_sin_shapley_clasico <- function(df,
                                                        target,
@@ -1602,9 +1763,7 @@ calcular_H_T_streaming_sin_shapley_clasico <- function(df,
   df <- as.data.frame(df)
   n  <- nrow(df)
   
-  ###########################################################################
-  # 13.1 Modelo global clásico (si no se pasa)
-  ###########################################################################
+
   if (is.null(obj_global)) {
     obj_global <- ajustar_modelo_global_clasico(
       df          = df,
@@ -1620,10 +1779,7 @@ calcular_H_T_streaming_sin_shapley_clasico <- function(df,
   }
   
   vars_pred <- obj_global$vars_pred
-  
-  ###########################################################################
-  # 13.2 Combinaciones de predictores (✅ INCLUYE EL VACÍO)
-  ###########################################################################
+
   lista_combos <- c(
     list(character(0)),  # S = ∅
     unlist(
@@ -1639,23 +1795,16 @@ calcular_H_T_streaming_sin_shapley_clasico <- function(df,
   
   n_comb <- length(lista_combos)
   
-  ###########################################################################
-  # 13.3 Estructuras H(i,S)
-  ###########################################################################
+
   H_mat     <- matrix(NA_real_, nrow = n, ncol = n_comb)
   H_nombres <- character(n_comb)
   
-  ###########################################################################
-  # 13.4 Checks (opcional)
-  ###########################################################################
+
   checks_list <- if (guardar_checks) vector("list", n * n_comb) else NULL
   idx_check   <- 1L
   
   vars_all <- names(df)
-  
-  ###########################################################################
-  # 13.5 Bucle principal streaming
-  ###########################################################################
+
   for (j in seq_along(lista_combos)) {
     
     cols_fijas <- lista_combos[[j]]
@@ -1684,14 +1833,10 @@ calcular_H_T_streaming_sin_shapley_clasico <- function(df,
         type    = "response"
       )
       
-      #######################################################################
-      # Cálculo central
-      #######################################################################
+
       H_mat[i, j] <- mean(pred_sub, na.rm = TRUE)
       
-      #######################################################################
-      # Checks (opcional)
-      #######################################################################
+
       if (guardar_checks) {
         ok_fijas <- all(
           sapply(cols_fijas, function(col) all(df_sub[[col]] == df[[col]][i]))
@@ -1716,9 +1861,7 @@ calcular_H_T_streaming_sin_shapley_clasico <- function(df,
     }
   }
   
-  ###########################################################################
-  # 13.6 Construcción tabla H(i,S)
-  ###########################################################################
+
   colnames(H_mat) <- H_nombres
   
   tabla_H_instancias <- data.frame(
@@ -1728,32 +1871,23 @@ calcular_H_T_streaming_sin_shapley_clasico <- function(df,
     check.names = FALSE
   )
   
-  ###########################################################################
-  # 13.7 K = H(∅) CALCULADO (NO EXTERNO)
-  ###########################################################################
+
   col_H_empty <- which(colnames(tabla_H_instancias) == "H()")
   
   K_calculado <- unique(tabla_H_instancias[[col_H_empty]])
   stopifnot(length(K_calculado) == 1)
   
   tabla_H_instancias$K <- K_calculado
-  
-  ###########################################################################
-  # 13.8 Tabla T(i,S)
-  ###########################################################################
+
   tabla_T_instancias <- calcular_T_por_instancia(tabla_H_instancias)
   
-  ###########################################################################
-  # 13.9 Checks finales
-  ###########################################################################
+
   verificacion <- NULL
   if (guardar_checks) {
     verificacion <- do.call(rbind, checks_list[seq_len(idx_check - 1L)])
   }
   
-  ###########################################################################
-  # 13.10 Salida
-  ###########################################################################
+
   list(
     obj_global         = obj_global,
     vars_pred          = vars_pred,
@@ -1764,14 +1898,18 @@ calcular_H_T_streaming_sin_shapley_clasico <- function(df,
   )
 }
 
-# HNANESI_clean debe venir de tu pipeline previo
+
+
+
+###############################################################################
+# 16. EJECUCIÓN DATASET – CON BUCLE (STREAMING XGB Y CLÁSICO)
+###############################################################################
+
+###############################################################################
+# DATASETS DE ANÁLISIS
+###############################################################################
 HNANESI_y   <- eliminar_vars(HNANESI_clean, c("y_b"))
 HNANESI_log <- eliminar_vars(HNANESI_clean, c("y"))
-
-
-###############################################################################
-# 15. ESQUEMA DE USO – CON BUCLE (STREAMING XGB Y CLÁSICO)
-###############################################################################
 
 # XGB REGRESIÓN STREAMING
 obj_global_num_xgb <- ajustar_xgb_global(HNANESI_y, "y", tipo = "regresion", nrounds = 200, seed = 123)
@@ -1790,11 +1928,11 @@ M1_Delta_xgb_y_stream <- res_stream_y_xgb$tabla_T_instancias
 
 write_xlsx(
   x = M1_Pred_xgb_y_stream,
-  path = "C:/Users/danis/OneDrive/Escritorio/Phd/4.1. Escritura de Tesis/Real Case. Resultados/Datos V2/XGB_reg/M1_Pred_xgb_y_stream.xlsx"
+  path = "C:/Users/.../M1_Pred_xgb_y_stream.xlsx" #Carpeta guardar los datos y nombre
 )
 write_xlsx(
   x = M1_Delta_xgb_y_stream,
-  path = "C:/Users/danis/OneDrive/Escritorio/Phd/4.1. Escritura de Tesis/Real Case. Resultados/Datos V2/XGB_reg/M1_Delta_xgb_y_stream.xlsx"
+  path = "C:/Users/.../M1_Delta_xgb_y_stream.xlsx" #Carpeta guardar los datos y nombre
 )
 
 # XGB CLASIFICACIÓN STREAMING
@@ -1813,11 +1951,11 @@ M1_Delta_xgb_yb_stream <- res_stream_yb_xgb$tabla_T_instancias
 
 write_xlsx(
   x = M1_Pred_xgb_yb_stream,
-  path = "C:/Users/danis/OneDrive/Escritorio/Phd/4.1. Escritura de Tesis/Real Case. Resultados/Datos V2/XGB_log/M1_Pred_xgb_log_stream.xlsx"
+  path = "C:/Users/danis/.../M1_Pred_xgb_log_stream.xlsx" #Carpeta guardar los datos y nombre
 )
 write_xlsx(
   x = M1_Delta_xgb_yb_stream,
-  path = "C:/Users/danis/OneDrive/Escritorio/Phd/4.1. Escritura de Tesis/Real Case. Resultados/Datos V2/XGB_log/M1_Delta_xgb_log_stream.xlsx"
+  path = "C:/Users/.../M1_Delta_xgb_log_stream.xlsx" #Carpeta guardar los datos y nombre
 )
 
 # LM REGRESIÓN STREAMING
@@ -1835,11 +1973,11 @@ M1_Delta_lm_y_stream <- res_stream_y_lm$tabla_T_instancias
 
 write_xlsx(
   x = M1_Delta_lm_y_stream,
-  path = "C:/Users/danis/OneDrive/Escritorio/Phd/4.1. Escritura de Tesis/Real Case. Resultados/Datos V2/lm/M1_Delta_lm_y_stream.xlsx"
+  path = "C:/Users/.../M1_Delta_lm_y_stream.xlsx" #Carpeta guardar los datos y nombre
 )
 write_xlsx(
   x = M1_Pred_lm_y_stream,
-  path = "C:/Users/danis/OneDrive/Escritorio/Phd/4.1. Escritura de Tesis/Real Case. Resultados/Datos V2/lm/M1_Pred_lm_y_stream.xlsx"
+  path = "C:/Users/.../M1_Pred_lm_y_stream.xlsx" #Carpeta guardar los datos y nombre
 )
 
 # GLM CLASIFICACIÓN STREAMING
@@ -1855,4 +1993,12 @@ res_stream_yb_glm <- calcular_H_T_streaming_sin_shapley_clasico(
 M1_Pred_glm_yb_stream <- res_stream_yb_glm$tabla_H_instancias
 M1_Delta_glm_yb_stream <- res_stream_yb_glm$tabla_T_instancias
 
+write_xlsx(
+  x = M1_Delta_glm_yb_stream,
+  path = "C:/Users/.../M1_Delta_glm_yb_stream.xlsx" #Carpeta guardar los datos y nombre
+)
+write_xlsx(
+  x = M1_Pred_glm_yb_stream,
+  path = "C:/Users/.../M1_Pred_glm_yb_stream.xlsx" #Carpeta guardar los datos y nombre
+)
 

@@ -1,6 +1,64 @@
+# ============================================================================
+# 1. CÁLCULO DEL VALOR DE SHAPLEY
+# ============================================================================
+#
+# Objetivo:
+# Calcular el valor de Shapley asociado a cada variable a partir de las
+# contribuciones Δ(S) obtenidas para todas las coaliciones posibles.
+#
+# Motivación:
+# - La tabla Δ(S) contiene la contribución asociada a cada coalición de
+#   variables.
+# - El valor de Shapley permite repartir la contribución total del
+#   modelo entre las variables participantes de forma consistente con la
+#   teoría de juegos cooperativos.
+#
+# Definición:
+#
+#                    |S|! (n-|S|-1)!
+#     Sh_i = Σ ---------------------- · [Δ(S ∪ {i}) − Δ(S)]
+#            S⊆N\{i}        n!
+#
+# donde:
+#
+# - i representa la variable analizada.
+# - S representa una coalición que no contiene a la variable i.
+# - n representa el número total de variables.
+#
+# Metodología:
+# - Se parte de la tabla de contribuciones Δ(S).
+# - Para cada variable se identifican todas las coaliciones que no la
+#   contienen.
+# - Se calcula su contribución marginal:
+#
+#       Δ(S ∪ {i}) − Δ(S)
+#
+# - Cada contribución marginal se pondera mediante los coeficientes del
+#   valor de Shapley.
+# - Las contribuciones ponderadas se agregan para obtener el valor de
+#   Shapley de la variable.
+# - El procedimiento se repite para todas las variables del modelo.
+#
+# Validación:
+# - Se verifica la propiedad de eficiencia:
+#
+#       Σ Sh_i = Δ(N) − Δ(∅)
+#
+# - La suma de los valores de Shapley debe coincidir con la contribución
+#   total del modelo.
+#
+# Resultado:
+# - Valor de Shapley para cada variable.
+# - Verificación de la propiedad de eficiencia.
+# - Tabla final enriquecida con las variables Shap_*.
+#
+# ============================================================================
+
 # ================================
 # SHAPLEY METODO I - LM
 # ================================
+
+
 
 Archivo<-M1_Delta_lm_y_stream
 
@@ -1976,11 +2034,13 @@ sum(M4_Shapley_xgb_log[["T_S_Sex"]]-M4_Shapley_xgb_log[["Shap_Sex"]])
 
 write_xlsx(
   x = M1_Shapley_lm,
-  path = "C:/Users/danis/OneDrive/Escritorio/Phd/4.1. Escritura de Tesis/Real Case. Resultados/Datos V2/Valor de Shapley/M1_Shapley_lm.xlsx"
+  path = "C:/Users/.../M1_Shapley_lm.xlsx"
 )
 write_xlsx(
   x = M1_Shapley_glm_yb,
-  path = "C:/Use# ================================
+  path = "C:/Users/.../M1_Shapley_lm.xlsx"
+)
+# ================================
 # SHAPLEY METODO I - LM
 # ================================
 
@@ -1988,7 +2048,7 @@ Archivo<-M1_Delta_lm_y_stream
 
 ############ Age ###############
 
-Shap_Age <-
+Shap_Age_ <-
   
   # s = 0
   (1/5) * (
@@ -2032,7 +2092,7 @@ Shap_Age <-
 
 ################# Race
 
-Shap_Race <-
+Shap_Race_ <-
   
   # s = 0
   (1/5) * (
@@ -2074,7 +2134,7 @@ Shap_Race <-
 
 ############## Cho
 
-Shap_Cho <-
+Shap_Cho_ <-
   
   # s = 0
   (1/5) * (
@@ -2116,7 +2176,7 @@ Shap_Cho <-
 
 ############# Ris
 
-Shap_Ris <-
+Shap_Ris_ <-
   
   # s = 0
   (1/5) * (
@@ -2158,7 +2218,7 @@ Shap_Ris <-
 
 ############# Sex
 
-Shap_Sex <-
+Shap_Sex_ <-
   
   # s = 0
   (1/5) * (
@@ -2206,6 +2266,8 @@ delta_teorica <-
   Archivo[["T(Age_Rac_Cho_Ris_Sex)"]] - Archivo[["T()"]]
 
 summary(suma_shapley - delta_teorica)
+
+
 
 ################ Construcción archivo Valor de Shapley M1_lm
 
@@ -3958,61 +4020,34 @@ sum(M4_Shapley_xgb_log[["T_S_Sex"]]-M4_Shapley_xgb_log[["Shap_Sex"]])
 
 write_xlsx(
   x = M1_Shapley_lm,
-  path = "C:/Users/danis/OneDrive/Escritorio/Phd/4.1. Escritura de Tesis/Real Case. Resultados/Datos V2/Valor de Shapley/M1_Shapley_lm.xlsx"
+  path = "C:/Users/.../M1_Shapley_lm.xlsx"
 )
 write_xlsx(
   x = M1_Shapley_glm_yb,
-  path = "C:/Users/danis/OneDrive/Escritorio/Phd/4.1. Escritura de Tesis/Real Case. Resultados/Datos V2/Valor de Shapley/M1_Shapley_glm_yb.xlsx"
+  path = "C:/Users/.../M1_Shapley_glm_yb.xlsx"
 )
 write_xlsx(
   x = M1_Shapley_xgb,
-  path = "C:/Users/danis/OneDrive/Escritorio/Phd/4.1. Escritura de Tesis/Real Case. Resultados/Datos V2/Valor de Shapley/M1_Shapley_xgb.xlsx"
+  path = "C:/Users/.../M1_Shapley_xgb.xlsx"
 )
 write_xlsx(
   x = M1_Shapley_xgb_yb,
-  path = "C:/Users/danis/OneDrive/Escritorio/Phd/4.1. Escritura de Tesis/Real Case. Resultados/Datos V2/Valor de Shapley/M1_Shapley_xgb_yb.xlsx"
+  path = "C:/Users/.../M1_Shapley_xgb_yb.xlsx"
 )
 
 write_xlsx(
   x = M4_Shapley_lm,
-  path = "C:/Users/danis/OneDrive/Escritorio/Phd/4.1. Escritura de Tesis/Real Case. Resultados/Datos V2/Valor de Shapley/M4_Shapley_lm.xlsx"
+  path = "C:/Users/.../M4_Shapley_lm.xlsx"
 )
 write_xlsx(
   x = M4_Shapley_glm_yb,
-  path = "C:/Users/danis/OneDrive/Escritorio/Phd/4.1. Escritura de Tesis/Real Case. Resultados/Datos V2/Valor de Shapley/M4_Shapley_glm_yb.xlsx"
+  path = "C:/Users/.../M4_Shapley_glm_yb.xlsx"
 )
 write_xlsx(
   x = M4_Shapley_xgb,
-  path = "C:/Users/danis/OneDrive/Escritorio/Phd/4.1. Escritura de Tesis/Real Case. Resultados/Datos V2/Valor de Shapley/M4_Shapley_xgb.xlsx"
+  path = "C:/Users/.../M4_Shapley_xgb.xlsx"
 )
 write_xlsx(
   x = M4_Shapley_xgb_log,
-  path = "C:/Users/danis/OneDrive/Escritorio/Phd/4.1. Escritura de Tesis/Real Case. Resultados/Datos V2/Valor de Shapley/M4_Shapley_xgb_log_lm.xlsx"
-)
-rs/danis/OneDrive/Escritorio/Phd/4.1. Escritura de Tesis/Real Case. Resultados/Datos V2/Valor de Shapley/M1_Shapley_glm_yb.xlsx"
-)
-write_xlsx(
-  x = M1_Shapley_xgb,
-  path = "C:/Users/danis/OneDrive/Escritorio/Phd/4.1. Escritura de Tesis/Real Case. Resultados/Datos V2/Valor de Shapley/M1_Shapley_xgb.xlsx"
-)
-write_xlsx(
-  x = M1_Shapley_xgb_yb,
-  path = "C:/Users/danis/OneDrive/Escritorio/Phd/4.1. Escritura de Tesis/Real Case. Resultados/Datos V2/Valor de Shapley/M1_Shapley_xgb_yb.xlsx"
-)
-
-write_xlsx(
-  x = M4_Shapley_lm,
-  path = "C:/Users/danis/OneDrive/Escritorio/Phd/4.1. Escritura de Tesis/Real Case. Resultados/Datos V2/Valor de Shapley/M4_Shapley_lm.xlsx"
-)
-write_xlsx(
-  x = M4_Shapley_glm_yb,
-  path = "C:/Users/danis/OneDrive/Escritorio/Phd/4.1. Escritura de Tesis/Real Case. Resultados/Datos V2/Valor de Shapley/M4_Shapley_glm_yb.xlsx"
-)
-write_xlsx(
-  x = M4_Shapley_xgb,
-  path = "C:/Users/danis/OneDrive/Escritorio/Phd/4.1. Escritura de Tesis/Real Case. Resultados/Datos V2/Valor de Shapley/M4_Shapley_xgb.xlsx"
-)
-write_xlsx(
-  x = M4_Shapley_xgb_log,
-  path = "C:/Users/danis/OneDrive/Escritorio/Phd/4.1. Escritura de Tesis/Real Case. Resultados/Datos V2/Valor de Shapley/M4_Shapley_xgb_log_lm.xlsx"
+  path = "C:/Users/.../M4_Shapley_xgb_log_lm.xlsx"
 )
