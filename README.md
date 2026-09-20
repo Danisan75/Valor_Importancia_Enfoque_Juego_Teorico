@@ -47,11 +47,11 @@ El repositorio se organiza en cinco carpetas:
 
 ## Carpeta 1 — Código R
 
-Esta carpeta contiene los scripts desarrollados en R para la lectura y adecuación de los datos, cálculo de medidas difusas, el cálculo de predicciones, la estimación de variaciones de predicción y el cálculo de valores de Shapley. Los métodos se aplican sobre modelos de regresión lineal generalizada y XGBoost, así como sobre modelos de clasificación GLM y XGBoost.
+Esta carpeta contiene los scripts desarrollados en R para la lectura y adecuación de los datos, cálculo de medidas difusas, el cálculo de predicciones, la estimación de variaciones de predicción y el cálculo de los valores de Shapley. Los métodos se aplican sobre modelos de regresión lineal y XGBoost, así como sobre modelos de clasificación GLM y XGBoost.
 
 | Archivo                        | Descripción  
 | ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-| `Lectura_Adecuacion_Datos.R`   |Preparación de la base de datos: lectura e integración de variables explicativas y objetivo, depuración de registros incompletos si los hubiera, análisis descriptivo automático, identificación de tipos   |variables para posterior tratamiento, construcción de nuevas variables (riesgo de presión arterial, sexo recodificado y objetivo binario), selección y codificación de variables de estudio, validación |de la estructura de datos, almacenamiento y dataset final preparado para modelización, medidas difusas, predicciones, variaciones de predicción, cálculo de valores de Shapley y representaciones gráficas |por posición, ausencia y presencia. Salida archivo HNANESI_clean
+| `Lectura_Adecuacion_Datos.R`   |Preparación de la base de datos: lectura e integración de variables explicativas y objetivo, depuración de registros incompletos si los hubiera, análisis descriptivo automático, identificación de tipos   |variables para posterior tratamiento, construcción de nuevas variables (riesgo de presión arterial, sexo recodificado y objetivo binario), selección y codificación de variables de estudio, validación |de la estructura de datos, almacenamiento y dataset final preparado para modelización, medidas difusas, predicciones, variaciones de predicción, cálculo del valor de Shapley y representaciones gráficas |por posición, ausencia y presencia. Salida archivo HNANESI_clean
 | `Medida_Difusa_2.R`            |Implementación del procedimiento de cálculo de la medida difusa μ para su posterior uso en el metodo 4, construcción de la matriz μ para todas las variables y coaliciones y validación de sus propiedades |teóricas.  
 | `Metodo_I.R`                   |Implementación del Método 1 para el cálculo de la importancia de las variables: estimación de las predicciones y variaciones de predicción asociadas a todas las coaliciones posibles de variables |explicativas (S). El procedimiento se aplica tanto a modelos clásicos de regresión y clasificación (LM y GLM) como a modelos XGBoost (XGB) de regresión y clasificación.
 | `Metodo_IV.R`                  |Implementación del Método 4 para el cálculo de la importancia de las variables utilizando la medidas difusas previamente estimadas: estimación de las predicciones y variaciones de predicción asociadas a |todas las coaliciones posibles de variables explicativas (S). El procedimiento se aplica tanto a modelos clásicos de regresión y clasificación (LM y GLM) como a modelos XGBoost (XGB) de regresión y |clasificación.
@@ -64,11 +64,11 @@ Esta carpeta contiene un fichero excel XLSX con los resultados de las medidas di
 
 | Archivo                        | Descripción            
 | ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-| `Mu.xlsx`                      |Archivo con los valores de las variables difusas de cada variables en función de la coalición S.
+| `Mu.xlsx`                      |Archivo con los valores de las variables difusas de cada variable en función de la coalición S.
 
 ## Carpeta 3 — XLSX predicciones distintos modelos y métodos
 
-Esta carpeta recoge las predicciones individuales para cada instancia generadas mediante los métodos 1 y 4 para todas las coaliciones evaluadas, utilizando los modelos GLM y XGBoost tanto en los problemas de regresión como de clasificación. Las predicciones de los métodos 1 y 4 para cada coalición S (es decir, y1′(S) e y4′(S,μ)) las denominaremos H(S), donde cada variables de S se denominará por las tres primeras letras de su denominación.
+Esta carpeta recoge las predicciones individuales para cada instancia generadas mediante los métodos 1 y 4 para todas las coaliciones evaluadas, utilizando los modelos GLM y XGBoost tanto en los problemas de regresión como de clasificación. Las predicciones de los métodos 1 y 4 para cada coalición S (es decir, y1′(S) e y4′(S,μ)) las denominaremos H(S), donde cada variable de S se denominará por las tres primeras letras de su denominación.
 La predicción asociada a S=∅ (y1′(∅) e y4′(∅,μ)) se han denotado con la letra K.
 
 
@@ -85,7 +85,7 @@ La predicción asociada a S=∅ (y1′(∅) e y4′(∅,μ)) se han denotado con
 
 ## Carpeta 4 — XLSX variaciones de predicción y valor de Shapley
 
-Esta carpeta recoge, para cada instancia, las variaciones de la predicción derivadas del conocimiento de los valores de la coalición S respecto a no conocer ningún valor de la variables, así como los valores de Shapley correspondientes. Estos resultados se han generado mediante los métodos 1 y 4 para todas las coaliciones evaluadas, utilizando los mismo modelos que en caso anterior para los problemas de regresión como de clasificación. A Δ1(S) y Δ4(S) se las ha denominado T(S). Si S=∅ la denominación será T() para cualquier otra coalición S se denominara con las tres primeras letras de cada variable. El valor de Shapley se etiqueta con Sha_ más las tres primeras letras de cada variables.
+Esta carpeta recoge, para cada instancia, las variaciones de la predicción derivadas del conocimiento de los valores de la coalición S respecto a no conocer ningún valor de la variables, así como los valores de Shapley correspondientes. Estos resultados se han generado mediante los métodos 1 y 4 para todas las coaliciones evaluadas, utilizando los mismo modelos que en caso anterior para los problemas de regresión como de clasificación. A Δ1(S) y Δ4(S) se las ha denominado T(S). Si S=∅ la denominación será T() para cualquier otra coalición S se denominará con las tres primeras letras de cada variable. El valor de Shapley se etiqueta con Sha_ más las tres primeras letras de cada variable.
 
 | Archivo                        | Descripción    
 | ------------------------------ |--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
