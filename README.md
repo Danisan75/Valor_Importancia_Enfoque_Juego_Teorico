@@ -43,7 +43,7 @@ El repositorio se organiza en cinco carpetas:
     ├── Shap_Graficos_M4_lm_regresion.pdf
     ├── Shap_Graficos_M4_xgb_clasificacion.pdf
     └── Shap_Graficos_M4_xgb_regresion.pdf
-```
+
 
 ## Carpeta 1 — Código R
 
@@ -63,7 +63,7 @@ Esta carpeta contiene los scripts desarrollados en R para la lectura y adecuaci�
 Esta carpeta contiene un fichero excel XLSX con los resultados de las medidas difusas para cada una de las variables y las distintas coaliciones posibles.
 
 | Archivo                        | Descripción            
-| ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+| ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 | `Mu.xlsx`                      |Archivo con los valores de las variables difusas de cada variables en función de la coalición S.
 
 ## Carpeta 3 — XLSX predicciones distintos modelos y métodos
@@ -88,7 +88,7 @@ La predicción asociada a S=∅ (y1′(∅) e y4′(∅,μ)) se han denotado con
 Esta carpeta recoge, para cada instancia, las variaciones de la predicción derivadas del conocimiento de los valores de la coalición S respecto a no conocer ningún valor de la variables, así como los valores de Shapley correspondientes. Estos resultados se han generado mediante los métodos 1 y 4 para todas las coaliciones evaluadas, utilizando los mismo modelos que en caso anterior para los problemas de regresión como de clasificación. A Δ1(S) y Δ4(S) se las ha denominado T(S). Si S=∅ la denominación será T() para cualquier otra coalición S se denominara con las tres primeras letras de cada variable. El valor de Shapley se etiqueta con Sha_ más las tres primeras letras de cada variables.
 
 | Archivo                        | Descripción    
-| ------------------------------ |-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+| ------------------------------ |--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 | `M1-Shapley-glm-yb `           | Archivo con las variaciones de predicciones en cada instancia para cada coalición y el valor de Shapley utilizando el método 1 y la regresión logística como modelo de clasificación.
 | `M1-Shapley-lm-y `             | Archivo con las variaciones de predicciones en cada instancia para cada coalición y el valor de Shapley utilizando el método 1 y la regresión lineal como modelo de regresión.
 | `M1-Shapley-xgb-yb `           | Archivo con las variaciones de predicciones en cada instancia para cada coalición y el valor de Shapley utilizando el método 1 y XGBoost como modelo de clasificación.
@@ -103,7 +103,7 @@ Esta carpeta recoge, para cada instancia, las variaciones de la predicción deri
 Esta carpeta contiene en archivos pdf las gráficas por posición, presencia y ausencia para las distintas combinaciones de coaliciones. La gráfica en color verde representa la importancia por posición en función de los predecesores de la variable analizada. La gráfica azul representa la importancia por presencia en función del número de predecesores. La gráfica verde representa la importancia por ausencia en función del número de predecesores. Todas las representaciones gráficas son en la primera instancia. Cada gráfica contiene una leyenda donde se detallan las variables analizadas.
 
 | Archivo                                  | Descripción    
-| ---------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+| ---------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 | `Shap_Graficos_M1_glm_clasificación.pdf` | Archivo con las representaciones gráficas por posición, ausencia y presencia de una variable o coalición utilizando el método 1 y la regresión logística como modelo de clasificación.
 | `Shap_Graficos_M1_lm_regresión.pdf`      | Archivo con las representaciones gráficas por posición, ausencia y presencia de una variable o coalición utilizando el método 1 y la regresión lineal como modelo de regresión.
 | `Shap_Graficos_M1_xgb_clasificación.pdf` | Archivo con las representaciones gráficas por posición, ausencia y presencia de una variable o coalición utilizando el método 1 y XGBoost como modelo de clasificación.
