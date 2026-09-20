@@ -5,7 +5,6 @@ getwd()
 ruta_datos <- "C:/Users/TuUsuario/Documents/MiRepositorio" # Ruta donde estan los archivos con datos
 ruta_resultados <- "C:/Users/TuUsuario/Documents/MiRepositorio" # Ruta donde quiero poner los resultados
 
-ruta_resultados<-"C:/Users/danis/OneDrive/Escritorio/Github"
 
 # ============================================================================
 # 1. CARGA DE LIBRERÍAS NECESARIAS

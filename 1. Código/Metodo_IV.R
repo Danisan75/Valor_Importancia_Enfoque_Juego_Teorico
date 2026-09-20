@@ -920,7 +920,7 @@ debug_instancias_todos_S_matriz <- function(df,
   cat("Predictores: ", paste(obj_global$vars_pred, collapse = ", "), "\n\n")
   
   # ==========================================================
-  # ✅ DEBUG EXPLÍCITO PARA S = {}  (CONJUNTO VACÍO)
+  #  DEBUG EXPLÍCITO PARA S = {}  (CONJUNTO VACÍO)
   # ==========================================================
   # S = {}  (FULL, METODOLÓGICO)
   
@@ -936,7 +936,7 @@ debug_instancias_todos_S_matriz <- function(df,
   )
   
   # ==========================================================
-  # ✅ DEBUG PARA EL RESTO DE S (NO VACÍOS)
+  #  DEBUG PARA EL RESTO DE S (NO VACÍOS)
   # ==========================================================
   for (S in S_list) {
     S <- sort(S)
@@ -1541,7 +1541,7 @@ H_instancia_S_matriz_clasico <- function(df,
   inst_vals <- df[i_instancia, vars_pred, drop = FALSE]
   
   # Caso U vacío: todas las vars conocidas
-  # ✅ Caso límite: S = X → baseline
+  # Caso límite: S = X → baseline
   # Caso U vacío: S = X
   # MISMA definición que M1 y XGBoost: esperanza empírica
   if (k == 0L) {
@@ -1828,7 +1828,7 @@ debug_instancias_todos_S_matriz_clasico <- function(df,
   cat("Predictores: ", paste(obj_global$vars_pred, collapse = ", "), "\n\n")
   
   # ==========================================================
-  # ✅ DEBUG EXPLÍCITO PARA S = {}  (CONJUNTO VACÍO)
+  # DEBUG EXPLÍCITO PARA S = {}  (CONJUNTO VACÍO)
   # ==========================================================
   cat("\n----- S = {} -----\n")
   invisible(
@@ -1843,7 +1843,7 @@ debug_instancias_todos_S_matriz_clasico <- function(df,
   )
   
   # ==========================================================
-  # ✅ DEBUG PARA EL RESTO DE S (NO VACÍOS)
+  # DEBUG PARA EL RESTO DE S (NO VACÍOS)
   # ==========================================================
   for (S in S_list) {
     S <- sort(S)
