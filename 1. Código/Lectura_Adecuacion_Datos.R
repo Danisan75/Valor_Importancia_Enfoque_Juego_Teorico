@@ -1,5 +1,12 @@
 getwd()
-rstudioapi::getSourceEditorContext()$path
+
+# Rutas principales del repositorio
+
+ruta_datos <- "C:/Users/TuUsuario/Documents/MiRepositorio" # Ruta donde estan los archivos con datos
+ruta_resultados <- "C:/Users/TuUsuario/Documents/MiRepositorio" # Ruta donde quiero poner los resultados
+
+ruta_resultados<-"C:/Users/danis/OneDrive/Escritorio/Github"
+
 # ============================================================================
 # 1. CARGA DE LIBRERÍAS NECESARIAS
 # ============================================================================
@@ -33,10 +40,8 @@ library(tibble)
 #
 # library(tidyverse)
 #
-# Sin embargo, este script utiliza únicamente los paquetes indicados
-# anteriormente, por lo que se cargan de forma explícita para dejar
-# identificadas sus dependencias reales.
-
+# Sin embargo, este script utiliza únicamente los paquetes indentificados
+# anteriormente, por lo que se cargan de forma explícita. 
 
 
 ##################################################################################
@@ -46,16 +51,15 @@ library(tibble)
 ##################################################################################
 
 # ============================================================================
-# 2. CARGA DEL CONJUNTO DE CARACTERISTICAS EXPLICATIVAS (X)
+# 2. CARGA DEL CONJUNTO DE CARACTERISTICAS INDEPENDIENTES (X)
 # ============================================================================
 
-# Carga del fichero con las variables independientes
-# posteriormente serán utilizadas como información de entrada del modelo.
+# Carga del fichero con las variables independientes que 
+# posteriormente serán utilizadas como input en los distintos scripts.
 
 HNANESI_subset_X <- read_csv(
-  "C:/....../HNANESI_subset_X.csv"
+  file.path(ruta_datos, "HNANESI_subset_X.csv")
 )
-
 # ============================================================================
 # 3. CARGA DE LA VARIABLE OBJETIVO (Y)
 # ============================================================================
@@ -63,16 +67,17 @@ HNANESI_subset_X <- read_csv(
 # Carga el fichero que contiene la variable objetivo.
 
 HNANESI_subset_y <- read_csv(
-  "C:/....../HNANESI_subset_y.csv"
+  file.path(ruta_datos, "HNANESI_subset_y.csv")
 )
 
 
+
 # ============================================================================
-# 4. INTEGRACIÓN EN UNA BBDD DE LAS VARIABLES EXPLICATIVAS Y LA VARIABLE OBJETIVO
+# 4. INTEGRACIÓN EN UNA BBDD DE LAS VARIABLES INDEPENDIENTES Y LA VARIABLE OBJETIVO
 # ============================================================================
 #
 # Objetivo:
-# Construir el conjunto de datos completo del estudio mediante la unión
+# Construir la base de datos completa del estudio mediante la unión
 # de las variables explicativas y la variable objetivo.
 #
 # Creación del dataset HNANESI con toda la información necesaria.
@@ -102,14 +107,14 @@ HNANESI <- HNANESI[complete.cases(HNANESI), ]
 # ============================================================================
 #
 # Objetivo:
-# Identificar la naturaleza de cada variable del conjunto de datos y generar
+# Identificar la naturaleza de cada variable de la base de datos y generar
 # un identificador que facilite su posterior análisis.
 #
 # Clasificación utilizada:
 # - NUMÉRICA
-# - CATEGÓRICA
-# - ORDINAL
-# - OTRA
+# - CATEGÓRICA NOMINAL (Categórica)
+# - CATEGÓRICA ORDINAL (Ordinal)
+# - OTRA - CATEGÓRICA (No debe tener ninguna variable-check)
 #
 # Resultado esperado:
 # - Creación de una tabla resumen con el nombre de cada variable,
@@ -157,7 +162,7 @@ View(resultado_tipos)
 # ============================================================================
 #
 # Objetivo:
-# Obtener una tabla resumen con los principales estadísticos descriptivos
+# Generar una tabla resumen con los principales estadísticos descriptivos
 # de las variables numéricas de la BBDD.
 #
 # Información estimada:
@@ -173,7 +178,7 @@ View(resultado_tipos)
 # - Desviación 
 #
 # Resultado:
-# Una tabla con una fila por variable numérica y sus estadísticos
+# Tabla resumén con una fila por variable numérica y sus estadísticos
 # descriptivos 
 
 
@@ -238,7 +243,7 @@ resumen_numericas <- function(df) {
 # - Categorías más frecuentes por variable
 #
 # Resultado:
-# - Una tabla con una fila por cada variable categórica y sus principales
+# - Tabla resumén con una fila por cada variable categórica y sus principales
 #   características descriptivas.
 
 
@@ -339,7 +344,7 @@ res_rangos <- resumen_rangos_completo(HNANESI)
 # 1) Rangos numéricos
 View(res_rangos$numericas)
 
-# 2) Rango de categóricas (niveles y top categorías)
+# 2) Rango de categóricas 
 View(res_rangos$categoricas)
 
 
@@ -349,11 +354,11 @@ View(res_rangos$categoricas)
 
 
 # ============================================================================
-# 11. CONSTRUCCIÓN DEL INDICADOR DE RIESGO DE PRESIÓN ARTERIAL
+# 11. CONSTRUCCIÓN DE LA VARIABLE DE RIESGO DE PRESIÓN ARTERIAL (Risk_BP)
 # ============================================================================
 #
 # Objetivo:
-# Crear un indicador de riesgo de presión arterial a partir de las
+# Crear una variable ordinal de riesgo de presión arterial a partir de las
 # variables de presión sistólica y diastólica.
 #
 # Criterio:
@@ -370,8 +375,8 @@ View(res_rangos$categoricas)
 # - Risk_BP_cat : representación categórica ordinal del mismo riesgo
 #
 # Resultado:
-# - Incorporación al dataset de un único indicador de riesgo de presión
-#   arterial almacenado en formato numérico y categórico ordinal.
+# - Incorporación al dataset de una única variable de riesgo de presión
+#   arterial en formato numérico y categórico ordinal.
 
 
 
@@ -450,7 +455,7 @@ codificar_risk_bp <- function(df,
   df[[nombre_risk_num]] <- as.integer(risk_comb)
   
 
-  # Definimos etiquetas (ordenadas)
+  # Definimos etiquetas (orden)
   
   niveles_etiqueta <- c("Optima", "Normal", "Elevada", "Hipertension_1", "Hipertension_2")
   
@@ -460,7 +465,7 @@ codificar_risk_bp <- function(df,
     risk_comb,
     levels = 0:4,
     labels = niveles_etiqueta,
-    ordered = TRUE  # porque es un riesgo ordinal
+    ordered = TRUE  # variable ordinal
   )
   
   # Añadimos al dataframe
@@ -472,7 +477,7 @@ codificar_risk_bp <- function(df,
 }
 
 # ============================================================================
-# 12. APLICACIÓN DEL INDICADOR DE RIESGO DE PRESIÓN ARTERIAL
+# 12. APLICACIÓN A LA BBDD DE LA NUEVA METRICA DE PRESIÓN ARTERIAL
 # ============================================================================
 #
 # Objetivo:
@@ -539,7 +544,7 @@ resultado_tipos <- clasificar_variables(HNANESI)
 #
 # Objetivo:
 # Transformar la variable objetivo original en una versión binaria para
-# análisis de clasificación.
+# análisis en modelos de clasificación.
 #
 # Variable de entrada:
 # - y
@@ -553,7 +558,7 @@ resultado_tipos <- clasificar_variables(HNANESI)
 #
 # Resultado:
 # - Incorporación al dataset de una variable binaria de la característica
-#   objetivo original.
+#   numérica objetivo original.
 
 
 HNANESI$y_booleana <- ifelse(HNANESI$y <= 0, "0",
@@ -570,7 +575,8 @@ HNANESI$y_booleana <- ifelse(HNANESI$y <= 0, "0",
 #
 # Objetivo:
 # Seleccionar las variables que formarán parte del dataset final.
-#
+# De las dos variables que miden el riesgo conjunto mantenemos la ordinal
+# con etiquetas
 
 
 
@@ -664,8 +670,8 @@ ord_vars  <- c( "Risk_BP_cat")                                    # Variables or
 # ============================================================================
 #
 # Objetivo:
-# Generar un archivo descriptivo de las variables presentes en el
-# dataset final antes de que apliquemos la codificación definitiva.
+# Generar un archivo descriptivo de las variables del dataset
+# final.
 #
 # Información generada:
 # - Clase de la variable almacenada en R
@@ -757,11 +763,11 @@ library(crayon)
 
 str(HNANESI_F)
 
+
 saveRDS(
   HNANESI_F,
-  file = "C:/Users/.../HNANESI_F.rds"
+  file = file.path(ruta_resultados, "HNANESI_F.rds") # Ruta donde se almacena el fichero
 )
-
 
 # ============================================================================
 # 23. RECUPERACIÓN DEL DATASET ALMACENADO
@@ -772,9 +778,12 @@ saveRDS(
 # con el análisis sin repetir las etapas de preparación.
 #
 # Resultado:
-# - Restauración del objeto HNANESI_F en memoria.
+# - Restauración del objeto HNANESI_F en memoria de la ruta donde esta 
+# almacenado el dataset.
 
-HNANESI_F <- readRDS("C:/Users/.../HNANESI_F.rds")
+HNANESI_F <- readRDS(
+  file.path(ruta_resultados, "HNANESI_F.rds")
+)
 
 
 # ============================================================================
@@ -782,7 +791,7 @@ HNANESI_F <- readRDS("C:/Users/.../HNANESI_F.rds")
 # ============================================================================
 #
 # Objetivo:
-# Garantizar poder garantizar generar los mismos resultados en ejecuciones posteriores.
+# Garantizar poder generar los mismos resultados en posteriores ejecuciones.
 #
 # Aplicación:
 # - Selección aleatoria de muestras.
@@ -809,7 +818,7 @@ set.seed(123)
 #
 # Control de calidad:
 # - Verificación de posibles duplicidades generadas durante el proceso
-#   de abreviación (no aplica en este caso real.
+#   de abreviación (no aplica en este caso real).
 #
 # Resultado:
 # - Dataset con nombres de variables normalizados y homogéneos.
@@ -845,13 +854,14 @@ normalizar_a_tres_letras <- function(df) {
 #
 # Objetivo:
 # Preparar el dataset para su utilización en medidas difusas, modelos
-# predictivos, cálculo de valores de Shapley y representaciones gráficas.
+# predictivos, variaciones de predicció,  cálculo de valores de Shapley 
+# y representaciones gráficas.
 #
 # Procesos incluidos:
 # - Conversión a data.frame.
 # - Homogeneización de nombres de variables.
 # - Validación de las variables objetivo.
-# - Detección de incidencias de calidad de datos.
+# - Detección de incidencias en el dataset (NA, filas completas duplicadas.
 # - Eliminación de registros duplicados.
 #
 # Resultado:
@@ -933,7 +943,7 @@ preparar_HNANESI <- function(df) {
 #
 # Objetivo:
 # Construir la versión final del dataset preparada para las
-# fases de modelización, medidas difusas, cálculo de valores de Shapley
+# fases de estudio: medidas difusas, cálculo de valores de Shapley
 # y representaciones gráficas.
 #
 # Procesos aplicados:

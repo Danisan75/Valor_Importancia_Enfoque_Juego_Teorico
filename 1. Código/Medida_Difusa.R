@@ -24,14 +24,14 @@ calcular_ECM_vacio <- function(y){
 # ============================================================================
 #
 # Objetivo:
-# Calcular la métrica μ (mu), que mide la capacidad predictiva de las variables 
-# en S respecto a la aleatoridad (vacío).
+# Calcular la medida difusa μ, que mide la capacidad predictiva de las variables 
+# en S respecto a la aleatoridad (vacío) en el dataset.
 
 # Fórmula:
 # μ = (ECM_Vacio - ECM_S) / ECM_Vacio
 #
 # Donde:
-# - ECM_Vacio = error al predecir vj de manera aleatoria (baseline)
+# - ECM_Vacio = error al predecir vj de manera aleatoria
 # - ECM_S     = error al predecir vj con las variables de S
 #
 # ============================================================================
@@ -65,7 +65,7 @@ calcular_Mu <- function(ECM_Vacio, ECM_S, tol = 1e-12){
 #
 # Criterio:
 # - TRUE si tiene exactamente 2 valores distintos.
-# - En numéricos también trata el caso 0/1.
+# - En numéricos también tratamos el caso 0/1.
 # - FALSE en cualquier otro caso.
 #
 # ============================================================================
@@ -89,7 +89,7 @@ es_binaria_generica <- function(x){
 # ============================================================================
 #
 # Objetivo:
-# Convertir una variable binaria a formato numérico 0/1.
+# Convertir una variable binaria a formato numérico 0/1 
 #
 # Tipologías identificadas:
 # - logical    → FALSE = 0, TRUE = 1
@@ -102,7 +102,6 @@ es_binaria_generica <- function(x){
 # - En variables con 2 categorías:
 #     menor → 0
 #     mayor → 1
-# - Si la variable no es binaria, lanza error para revisar precodificación.
 #
 # ============================================================================
 
@@ -138,13 +137,9 @@ normalizar_binaria <- function(x){
 #
 # Comportamiento:
 # - Caso "Risk_BP": aplica un orden predefinido para asegurar el tratamiento correcto.
-# - En el caso de tener que aumentar o disminuir las categorías se especifican aquí
-# - Si la variable ya es ordered, se respeta tal cual.
-# - En otros casos, crea el orden según la primera aparición de valores.
 #
 # Input:
-# - x0: vector de datos.
-# - var_name: nombre de la variable.
+# - dataset
 #
 # Output:
 # - Factor ordenado (ordered = TRUE).
@@ -164,7 +159,7 @@ construir_factor_ordinal <- function(x0, var_name){
 
 
 # ============================================================================
-# 6. PREPROCESAMIENTO DE VARIABLES EXPLICATIVAS
+# 6. PREPROCESAMIENTO DE VARIABLES EXPLICATIVAS (INDEPENDIENTES)
 # ============================================================================
 #
 # Objetivo:
@@ -205,7 +200,9 @@ construir_factor_ordinal <- function(x0, var_name){
 # Risk_BP_Hipertension_2
 #
 # Interpretación:
-# - Risk_BP_Elevada = 1 indica que el nivel es Elevada o superior.
+# - Risk_BP_Elevada = 1 indica que el orden es igual a Elevada o superior.
+# - Risk_BP_Hipertension_1=1 indica que el orden es igual a Hipertesion_1 o superior
+# - Risk_BP_Hipertension_2=1 indica que el orden es igual a Hipertesion_2 
 #
 # Si la variable tiene k categorías:
 # - Se generan k-1 variables dummy acumulativas, una menos que k, la inferior.
@@ -407,18 +404,19 @@ generar_coaliciones <- function(vars_X, max_size = NULL){
 
 
 # ============================================================================
-# 9. CÁLCULO DEL ECM PARA VARIABLES NUMERICAS Y UNA COALICIÓN DE VARIABLES (S)
+# 9. CÁLCULO DEL ECM PARA VARIABLES NUMERICAS Y CADA COALICIÓN DE VARIABLES (S)
 # ============================================================================
 #
 # Objetivo:
-# Ajustar el modelo de regresión lineal utilizando las variables de una
-# coalición y calcular su Error Cuadrático Medio (ECM).
+# Calcular el modelo de regresión lineal utilizando las variables de una
+# coalición y calcular su Error Cuadrático Medio (ECM), esto se hace para todas
+# las coaliciones.
 #
 # Criterio de ajuste:
 # - Como mejores modelos se han utilizado los que minimizan el Error Cuadrático
 #   Medio para la coalición analizada al ser pocas las variables utilizadas. 
 #   Podrían utilizarse procedimientos de selección de variables
-#   (stepwise, backward, forward, etc.) antes del cálculo del ECM.
+#   (stepwise, backward, forward, etc.).
 # - En este caso se utiliza directamente el ajuste lineal que minimiza
 #   el error para las variables incluidas en la coalición.
 #
@@ -430,7 +428,7 @@ generar_coaliciones <- function(vars_X, max_size = NULL){
 #
 # Modelos con variables explicativas:
 # - Se seleccionan la/s variable/s de la coalición (S).
-# - Se ajusta un modelo de regresión lineal.
+# - Se calcula el modelo de regresión lineal.
 # - El modelo estima los coeficientes que minimizan el error cuadrático
 #   para la coalición analizada.
 # - Se calculan las predicciones obtenidas.
@@ -453,15 +451,15 @@ generar_coaliciones <- function(vars_X, max_size = NULL){
 
 ajustar_lineal_ECM <- function(datos, y, x_cols, intercept = TRUE){
   
-  x_cols <- intersect(x_cols, names(datos))          # Asegura columnas existentes
+  x_cols <- intersect(x_cols, names(datos))         
   y_vec  <- datos[[y]]
   
-  # Si no hay predictores => modelo vacío (media)
+ 
   if (length(x_cols) == 0){
     return(calcular_ECM_vacio(y_vec))
   }
   
-  # Trabaja solo con filas completas en y y X
+
   sub <- datos[, c(y, x_cols), drop = FALSE]
   cc  <- complete.cases(sub)
   if (!any(cc)) return(NA_real_)
@@ -469,12 +467,12 @@ ajustar_lineal_ECM <- function(datos, y, x_cols, intercept = TRUE){
   y_cc <- sub[[y]][cc]
   X_cc <- as.matrix(sub[cc, x_cols, drop = FALSE])
   
-  # Intercepto manual si se pide
+ 
   if (intercept){
     X_cc <- cbind("(Intercept)" = 1, X_cc)
   }
   
-  fit <- lm.fit(X_cc, y_cc)                          # Ajuste OLS eficiente
+  fit <- lm.fit(X_cc, y_cc)                          
   
   # Si hay colinealidad: coef NA -> 0 para poder predecir
   coefs <- fit$coefficients
@@ -491,8 +489,9 @@ ajustar_lineal_ECM <- function(datos, y, x_cols, intercept = TRUE){
 #
 # Objetivo:
 # Transformar variables objetivo categóricas en variables dummy (0/1)
-# para su utilización en los modelos de clasificación y en el cálculo
-# posterior de ECM y μ.
+# que permitan analizar individualmente cada categoría de la variable
+# original y construir posteriormente el ECM, la variable difusa para cada
+# variable dummy y para la variable original asociada.
 #
 # Variables transformadas:
 # - Variables categóricas nominales.
@@ -512,32 +511,41 @@ ajustar_lineal_ECM <- function(datos, y, x_cols, intercept = TRUE){
 # Y_Race_Other
 #
 # Targets ordinales:
-# - Se generan variables dummy acumulativas respetando el orden de los niveles.
+# - Se generan variables dummy acumulativas respetando el orden de los
+#   niveles (k-1).
 #
 # Ejemplo:
 # Risk_BP
 #
 # Variables objetivo generadas:
-# Y_Risk_BP_Normal
 # Y_Risk_BP_Elevada
 # Y_Risk_BP_Hipertension_1
 # Y_Risk_BP_Hipertension_2
 #
 # Metodología:
-# - Cada variable dummy podrá utilizarse posteriormente como variable
-#   objetivo independiente.
-# - Para cada dummy se evaluarán las distintas coaliciones de variables
-#   explicativas disponibles.
-# - Sobre cada dummy se calcularán posteriormente ECM y μ.
 #
-# Peso base:
+# - Cada variable objetivo discreta se transforma en un conjunto de
+#   variables dummy binarias.
+#
+# - Para variables nominales se genera una dummy independiente para cada
+#   categoría.
+#
+# - Para variables ordinales se generan dummies acumulativas asociadas a
+#   umbrales crecientes de la variable original.
+#
 # - Para cada dummy se calcula:
 #
 #     ws_base = min(#1, #0)
 #
-# - El peso mide el equilibrio entre observaciones positivas y negativas.
-# - Se utilizará posteriormente para ponderar resultados de la medida difusa
-# asociada a la variable original
+#   donde:
+#
+#     #1 = número de observaciones con valor 1
+#     #0 = número de observaciones con valor 0
+#
+# - Este peso se utilizará posteriormente en la agregación
+#   para el calculo de la variable difusa asociada a la variable
+#   objetivo original.
+#
 # Resultado:
 # - Dataset con las variables dummy añadidas.
 # - Tabla auxiliar con los pesos asociados a cada dummy.
@@ -552,17 +560,17 @@ crear_dummies_targets_discretas <- function(datos,
   out <- datos
   W   <- data.frame()
   
-  ## A) Targets cardinales (nominales): one-hot por categoría
+  ## A) Targets cardinales (nominales): 
   for (v in vars_cardinal_targets){
     if (!v %in% names(out)) next
     
     xf <- as.factor(out[[v]])
     levs   <- levels(xf)
-    levs_s <- make.names(levs)                       # Nombres seguros
+    levs_s <- make.names(levs)                       
     
     for (i in seq_along(levs)){
-      nom <- paste0("Y_", v, "_", levs_s[i])         # Dummy target
-      dum <- as.integer(xf == levs[i])              # 1 si pertenece a la categoría
+      nom <- paste0("Y_", v, "_", levs_s[i])        
+      dum <- as.integer(xf == levs[i])             
       
       out[[nom]] <- dum
       
@@ -623,8 +631,9 @@ crear_dummies_targets_discretas <- function(datos,
 # ============================================================================
 #
 # Objetivo:
-# Evaluar la capacidad predictiva de variables dummy (0/1) utilizando
-# distintas coaliciones de variables explicativas.
+# Evaluar la capacidad predictiva de una coalición de variables
+# explicativas sobre cada variable dummy mediante un modelo de
+# regresión logística.
 #
 # Variables objetivo:
 # - Las variables objetivo utilizadas en esta fase son variables dummy
@@ -634,34 +643,43 @@ crear_dummies_targets_discretas <- function(datos,
 # Ejemplos:
 #
 # Variables dummy asociadas a Race:
-# - Race_White
-# - Race_Black
-# - Race_Other
+# - Y_Race_White
+# - Y_Race_Black
+# - Y_Race_Other
 #
 # Variables dummy asociadas a Risk_BP:
-# - Risk_BP_Normal
-# - Risk_BP_Elevada
-# - Risk_BP_Hipertension_1
-# - Risk_BP_Hipertension_2
+# - Y_Risk_BP_Elevada
+# - Y_Risk_BP_Hipertension_1
+# - Y_Risk_BP_Hipertension_2
 #
 # Metodología:
-# - Cada variable dummy se analiza de forma independiente.
-# - Para cada variable dummy se generan las distintas coaliciones de las
-#   demás variables disponibles.
-# - Para cada coalición se ajusta un modelo de regresión logística (El 
-#   ajuste estima los parámetros que minimizan el error de predicción
-#   para la coalición analizada).
-# - El modelo estima las probabilidades de que la variable dummy tome
-#   valor 1.
-# - Se calcula el ECM 
 #
-# Modelo vacío:
-# - Si la coalición no contiene variables explicativas, se utiliza un
-#   modelo formado únicamente por el intercepto.
+# - Cada variable dummy se analiza de forma independiente.
+#
+# - Para cada coalición S de variables explicativas se ajusta un modelo
+#   de regresión logística binaria.
+#
+# - Si la coalición es vacía (S = ∅), se utiliza un modelo formado
+#   únicamente por el intercepto.
+#
+#
+# - La capacidad predictiva de la coalición S se mide mediante el Error
+#   Cuadrático Medio (ECM):
+#
+#     ECMi(S) = (1/m) Σ[(di)k − fci(xk)]²
+#
+#   donde:
+#
+#     (di)k  = valor observado de la dummy en la observación k
+#     fci(xk) = probabilidad estimada por el modelo para la observación k
+#     m       = número de observaciones utilizadas en el ajuste
+#
 #
 # Resultado:
 # - ECM asociado a cada variable dummy y a cada coalición evaluada.
-# - Estos valores se utilizarán posteriormente para calcular μ.
+#
+# - Estos valores se utilizarán posteriormente para calcular la medida μ
+#   correspondiente a cada coalición.
 #
 # ============================================================================
 
@@ -706,7 +724,7 @@ ajustar_logit_ECM <- function(datos, y, x_cols){
   mod <- suppressWarnings(glm(f, data = d, family = binomial))
   
   pr <- predict(mod, type = "response")              
-  PC <- ifelse(d[[y]] == 1, pr, 1 - pr)              # Probabilidad de clase correcta
+  PC <- ifelse(d[[y]] == 1, pr, 1 - pr)              
   
   mean((1 - PC)^2, na.rm = TRUE)                    
 }
@@ -726,10 +744,10 @@ ajustar_logit_ECM <- function(datos, y, x_cols){
 # - Se calcula el ECM del modelo vacío.
 # - Para cada coalición S se calcula el ECM asociado al modelo lineal.
 # - Se compara ECM(S) frente al ECM vacío.
-# - Se obtiene μ(S) 
+# - Se obtiene μ(S) de la variable 
 #
 # Resultado:
-# - Valor de μ para cada coalición S.
+# - Valor de μ de cada coalición S.
 # - Tabla de resultados asociada a la variable objetivo analizada.
 #
 # ============================================================================
@@ -773,46 +791,36 @@ calcular_Mu_numerica_target <- function(Datos, y, bloques_X, coaliciones){
   res
 }
 
-
 # ============================================================================
 # 13. CÁLCULO DE μ PARA VARIABLES OBJETIVO CATEGÓRICAS
 # ============================================================================
 #
 # Objetivo:
-# Calcular la medida difusa μ para una variable objetivo categórica
-# (nominal u ordinal) utilizando todas las coaliciones posibles de
-# variables explicativas.
+# Calcular la medida difusa μ para las variables categóricas
+# originales (nominales u ordinales) utilizando todas las coaliciones
+# posibles de variables explicativas (S).
 #
 # Metodología:
-# - La variable objetivo original se representa mediante las variables
-#   dummy generadas previamente.
-# - Para cada variable dummy se calcula el ECM del modelo vacío.
-# - Para cada coalición S se calcula el ECM asociado al modelo logístico.
-# - Se obtiene μ(S) para cada variable dummy.
-# - Los resultados de las variables dummy se agregan para obtener un
-#   único valor de μ asociado a la variable original.
 #
-# Agregación:
-# - La agregación se realiza mediante una media ponderada.
-# - El peso de cada variable dummy depende de su variabilidad.
-# - El peso utilizado es:
+# - Para cada coalición S se dispone de un valor μ asociado a cada
+#   variable dummy.
 #
-#     wc_i = min(número de unos, número de ceros)
+# - A cada variable dummy se le asigna un peso en función del equilibrio
+#   entre observaciones con valor 1 y valor 0.
 #
-# - Las variables dummy más equilibradas reciben mayor peso.
-# - Las variables dummy muy desbalanceadas reciben menor peso.
+# - Los pesos se normalizan para que su suma sea igual a 1.
 #
-# Ejemplo:
-# - Una dummy con 40% de unos y 60% de ceros tendrá más peso
-#   que una dummy con 20% de unos y 80% de ceros.
+# - El valor μ de la variable categórica original se obtiene mediante una
+#   agregación ponderada de los valores μ de sus variables dummy.
 #
 # Resultado:
-# - Valor de μ para cada coalición S.
+#
+# - Valor de μ para cada variable categórica original y para cada
+#   coalición S de variables explicativas.
+#
 # - Tabla de resultados asociada a la variable objetivo analizada.
 #
-# ============================================================================  
-
-
+# ============================================================================
 
 calcular_Mu_discreta_target <- function(Datos, var_name,
                                         bloques_X, coaliciones,
@@ -875,12 +883,12 @@ calcular_Mu_discreta_target <- function(Datos, var_name,
 # ============================================================================
 #
 # Objetivo:
-# Reorganizar los resultados de μ en formato matricial para facilitar
+# Tabla resumen de los resultados de μ en formato matricial para facilitar
 # los análisis posteriores.
 #
 # Metodología:
 # - Cada fila representa una coalición S.
-# - Cada columna representa una variable del dataset.
+# - Cada columna representa una variable original del dataset.
 # - Cada celda contiene el valor de la medida difusa asociado a esa combinación.
 #
 # Ejemplo:
@@ -1031,7 +1039,7 @@ aplicar_mu_mejor_monotono <- function(tabla_mu, coaliciones, vars_X_all){
 
 
 # ============================================================================
-# 16. PIPELINE DE EJECUCIÓN COMPLETO DE LA MEDIDA DIFUSA μ
+# 16. PROCEDIMIENTO GENERAL DE CÁLCULO DE LA MEDIDA DIFUSA μ
 # ============================================================================
 #
 # Objetivo:
@@ -1045,7 +1053,8 @@ aplicar_mu_mejor_monotono <- function(tabla_mu, coaliciones, vars_X_all){
 # 3. Generación de coaliciones (S).
 # 4. Construcción de variables dummy para targets discretos.
 # 5. Cálculo de μ para variables objetivo numéricas.
-# 6. Cálculo de μ para variables objetivo categóricas.
+# 6. Cálculo y agregación de μ para variables objetivo categóricas
+#    (nominales y ordinales).
 # 7. Aplicación del ajuste monótono.
 # 8. Construcción de la matriz μ.
 #
@@ -1133,18 +1142,22 @@ calcular_mu_num_card_ord <- function(Datos,
 
 
 # ============================================================================
-# 17. EJECUCIÓN Y ORGANIZACIÓN DE RESULTADOS DE μ
-# =============================================================================
+# 17. ORGANIZACIÓN DE RESULTADOS DE LA MEDIDA DIFUSA μ
+# ============================================================================
 #
 # Objetivo:
-# Ejecutar el pipeline completo de cálculo de la medida difusa μ y
-# adaptar los resultados al formato de salida utilizado en versiones
-# anteriores.
+# Ejecutar el procedimiento general de cálculo de la medida difusa μ y
+# organizar los resultados en los distintos formatos de salida utilizados
+# por la metodología.
 #
 # Procesos ejecutados:
-# - Identificación automática de variables objetivo nominales y ordinales.
-# - Ejecución del pipeline completo de cálculo de μ.
-# - Adaptación de resultados a formatos compatibles.
+#
+# 1. Identificación de variables objetivo categóricas nominales y
+#    ordinales.
+#
+# 2. Ejecución del procedimiento general de cálculo de μ.
+#
+# 3. Construcción de las distintas estructuras de resultados.
 #
 # Resultados generados:
 #
@@ -1152,10 +1165,7 @@ calcular_mu_num_card_ord <- function(Datos,
 #    - Tabla detallada de resultados.
 #
 # 2. tabla_mu_variables
-#    - Tabla resumida con:
-#        variable objetivo
-#        coalición S
-#        valor μ
+#    - Tabla resumida por variable objetivo, coalición S y valor μ.
 #
 # 3. matriz_mu
 #    - Matriz final de la medida difusa μ.
@@ -1163,7 +1173,8 @@ calcular_mu_num_card_ord <- function(Datos,
 #    - Columnas: variables objetivo.
 #
 # Resultado:
-# - Punto único de ejecución para el cálculo completo de la medida
+#
+# - Conjunto completo de resultados asociados al cálculo de la medida
 #   difusa μ.
 #
 # ============================================================================
@@ -1241,18 +1252,18 @@ calcular_todo_Mu <- function(Datos,
 ################################################################################
 #
 # Objetivo:
-# Aplicar el procedimiento completo de cálculo de μ sobre los datasets
-# de análisis definidos previamente.
+# Ejecutar el procedimiento completo de cálculo de la medida difusa μ
+# sobre el datasets de análisis.
 #
 # Configuración:
 # - Definición de variables objetivo.
 # - Definición de variables explicativas.
-# - Cálculo de μ para todas las coaliciones posibles.
+# - Aplicación de la metodología completa de cálculo de μ.
 #
 # Resultado:
-# - Obtención de la tabla detallada de μ.
-# - Obtención de la matriz μ.
-# - Preparación de resultados para análisis posteriores.
+# - Tabla detallada de μ.
+# - Tabla resumida por variable.
+# - Matriz μ.
 #
 ################################################################################
 
@@ -1325,9 +1336,6 @@ res_Mu_log <- calcular_todo_Mu(
 ###############################################################################
 # 19.1 TEST 1: VALIDACIÓN DE LA COALICIÓN VACÍA
 ###############################################################################
-#
-# Propiedad verificada:
-# - La coalición vacía no aporta capacidad predictiva.
 #
 # Condición esperada:
 # - μ(empty) = 0 para todas las variables objetivo.
@@ -1408,14 +1416,12 @@ test_mu_variable_en_S <- function(matriz_mu, tol = 1e-8){
 ###############################################################################
 #
 # Propiedad verificada:
-# - La medida difusa μ debe permanecer acotada.
+# - La medida difusa μ debe esta [0,1].
 #
 # Condición esperada:
 # - 0 ≤ μ ≤ 1
 #
-# Interpretación:
-# - μ = 0 representa ausencia de mejora respecto al modelo vacío.
-# - μ = 1 representa capacidad predictiva máxima.
+
 
 test_mu_rango <- function(matriz_mu, tol = 1e-12){
   
@@ -1446,7 +1452,6 @@ test_mu_rango <- function(matriz_mu, tol = 1e-12){
 #
 # Tratamiento aplicado:
 # - Conversión de posibles factores a formato numérico.
-# - Conversión de posibles caracteres a formato numérico.
 # - Conservación de los nombres originales de las coaliciones.
 #
 # Resultado:
@@ -1521,11 +1526,7 @@ test_mu_rango(matriz_mu)
 # ============================================================================
 
 
-###############################################################################
-# CONFIGURACIÓN DE LA CARPETA DE SALIDA
-###############################################################################
 
-RUTA_SALIDA <- "C:/Users/..."
 
 ###############################################################################
 # FUNCIÓN DE GUARDADO EN CSV
@@ -1533,21 +1534,37 @@ RUTA_SALIDA <- "C:/Users/..."
 
 guardar_csv <- function(datos, nombre_archivo) {
   
-  if (!dir.exists(RUTA_SALIDA)) {
-    dir.create(RUTA_SALIDA, recursive = TRUE)
+  if (!dir.exists(ruta_resultados)) {
+    dir.create(ruta_resultados, recursive = TRUE)
+  }
+  
+  # Si hay rownames, convertirlos en una columna
+  if (!is.null(rownames(datos))) {
+    
+    # Evitar añadir una columna vacía si los rownames son 1:n
+    if (!all(rownames(datos) == seq_len(nrow(datos)))) {
+      
+      datos <- cbind(
+        Coalicion = rownames(datos),
+        datos
+      )
+      
+    }
   }
   
   write.csv(
     datos,
-    file = file.path(RUTA_SALIDA, nombre_archivo),
+    file = file.path(ruta_resultados, nombre_archivo),
     row.names = FALSE
   )
   
   invisible(TRUE)
 }
 
+
+
 ###############################################################################
-# ALMACENAMIENTO DE RESULTADOS
+# ALMACENAMIENTO DE RESULTADOS CSV 
 ###############################################################################
 
 guardar_csv(
@@ -1557,5 +1574,59 @@ guardar_csv(
 
 guardar_csv(
   res_Mu_y$matriz_mu,
-  "matriz_mu.csv"
+  "Mu.csv"
+)
+
+
+###############################################################################
+# FUNCIÓN DE GUARDADO EN EXCEL
+###############################################################################
+
+# Instalar una única vez
+#install.packages("openxlsx")
+
+# Cargar librería
+library(openxlsx)
+
+guardar_excel <- function(datos, nombre_archivo) {
+  
+  if (!dir.exists(ruta_resultados)) {
+    dir.create(ruta_resultados, recursive = TRUE)
+  }
+  
+  # Si hay rownames, convertirlos en columna
+  if (!is.null(rownames(datos))) {
+    
+    if (!all(rownames(datos) == seq_len(nrow(datos)))) {
+      
+      datos <- cbind(
+        Coalicion = rownames(datos),
+        datos
+      )
+      
+    }
+  }
+  
+  write.xlsx(
+    x = as.data.frame(datos),
+    file = file.path(ruta_resultados, nombre_archivo),
+    rowNames = FALSE
+  )
+  
+  invisible(TRUE)
+}
+
+
+###############################################################################
+# ALMACENAMIENTO DE RESULTADOS EXCEL 
+###############################################################################
+
+guardar_excel(
+  res_Mu_y$tabla_mu_variables,
+  "tabla_mu_variables.xlsx"
+)
+
+guardar_excel(
+  res_Mu_y$matriz_mu,
+  "Mu.xlsx"
 )
