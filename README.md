@@ -77,12 +77,12 @@ La predicción asociada a S=∅ (y1′(∅) e y4′(∅,μ)) se han denotado con
 | ------------------------------ |--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 | `M1-Pred-glm-yb.xls`           | Archivo con las predicciones en cada instancia para cada coalición utilizando el método 1 y la regresión logística como modelo de clasificación.  
 | `M1-Pred-lm-y.xls`             | Archivo con las predicciones en cada instancia para cada coalición utilizando el método 1 y la regresión lineal como modelo de regresión.        
-| `M1-Pred-xgb-yb.xls`          | Archivo con las predicciones en cada instancia para cada coalición utilizando el método 1 y XGBoost como modelo de clasificación.                
-| `M1-Pred-xgb-y.xls``           | Archivo con las predicciones en cada instancia para cada coalición utilizando el método 1 y XGBoost como modelo de regresión.                    
+| `M1-Pred-xgb-yb.xls`           | Archivo con las predicciones en cada instancia para cada coalición utilizando el método 1 y XGBoost como modelo de clasificación.                
+| `M1-Pred-xgb-y.xls`            | Archivo con las predicciones en cada instancia para cada coalición utilizando el método 1 y XGBoost como modelo de regresión.                    
 | `M4-Pred-glm-yb.xls`           | Archivo con las predicciones en cada instancia para cada coalición utilizando el método 4 y la regresión logística como modelo de clasificación.  
 | `M4-Pred-lm-y.xls`             | Archivo con las predicciones en cada instancia para cada coalición utilizando el método 4 y la regresión lineal como modelo de regresión.        
-| `M4-Pred-xgb-yb.xls`          | Archivo con las predicciones en cada instancia para cada coalición utilizando el método 4 y XGBoost como modelo de clasificación.                
-| `M4-Pred-xgb-y.xls``           | Archivo con las predicciones en cada instancia para cada coalición utilizando el método 4 y XGBoost como modelo de regresión.                    
+| `M4-Pred-xgb-yb.xls`           | Archivo con las predicciones en cada instancia para cada coalición utilizando el método 4 y XGBoost como modelo de clasificación.                
+| `M4-Pred-xgb-y.xls`            | Archivo con las predicciones en cada instancia para cada coalición utilizando el método 4 y XGBoost como modelo de regresión.                    
 
 ## Carpeta 4 — XLSX variaciones de predicción y valor de Shapley
 
