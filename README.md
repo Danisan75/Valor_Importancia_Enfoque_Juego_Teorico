@@ -2,6 +2,7 @@
 
 El repositorio se organiza en cinco carpetas:
 
+```text
 ├── README.md
 ├── 1. Código/
 │   ├── Lectura_Adecuacion_Datos.R
@@ -43,7 +44,7 @@ El repositorio se organiza en cinco carpetas:
     ├── Shap_Graficos_M4_lm_regresion.pdf
     ├── Shap_Graficos_M4_xgb_clasificacion.pdf
     └── Shap_Graficos_M4_xgb_regresion.pdf
-
+```
 
 ## Carpeta 1 — Código R
 
