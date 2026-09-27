@@ -144,8 +144,7 @@ Una vez ejecutado `Lectura_Adecuacion_Datos.R`, la secuencia es la siguiente:
 
 Las representaciones gráficas pueden generarse de dos maneras:
 
-- Ejecutando directamente el script de visualización, tras completar la secuencia correspondiente de cada uno de los métodos.
-- Cargando cualquiera de los archivos de resultados del valor de Shapley, almacenados en la "carpeta 4":
+Ejecutando directamente el script de visualización, tras completar la secuencia correspondiente de cada uno de los métodos o bien cargando cualquiera de los archivos de resultados del valor de Shapley, almacenados en la "carpeta 4":
 
 - M1-Shapley-lm-y.xlsx
 - M1-Shapley-glm-yb.xlsx
@@ -156,20 +155,21 @@ Las representaciones gráficas pueden generarse de dos maneras:
 - M4-Shapley-xgb-y.xlsx
 - M4-Shapley-xgb-yb.xlsx
 
+A continuación se presentan las rutas:   
+
 tabla_T_base <- read_excel( file.path(ruta_resultados, "Archivo.xlsx"))
 
 tabla_T_base <- tabla_T_base[ , 1:(ncol(tabla_T_base) - 5)]
 
 ## Software
 
-Los scripts de R requieren el entorno de programación estadística R y los paquetes especificados dentro de cada script. Se ha utilizado la versión 4.4.0.
+Los scripts de R requieren el entorno de programación estadística R y los paquetes especificados dentro de cada script. Se ha utilizado la versión de R 4.4.0.
 
 ## Cita bibliográfica
 
 Si utiliza este repositorio, cite las siguientes publicaciones:
 
 - D. Santos, I. Gutiérrez, J. Castro, D. Gómez, J.A. Guevara y R. Espínola. «Explanation of machine learning classification models with fuzzy measures: An approach to individual classification». En: Intelligent and fuzzy systems: digital acceleration and the new normal, Infus 2022. Vol. 505. Springer international publishing, 2022, págs. 62-69. doi: 10.1007/978-3-031-09176-6_7.
-- **Explanation of machine learning classification models with fuzzy measures: An approach to individual classification**. DOI: 10.1007/978-3-031-09176-6_7
-- **On measuring features importance in machine learning models in a two-dimensional representation scenario**. DOI: 10.1109/FUZZ-IEEE55066.2022.9882566
-- **Machine learning and fuzzy measures: A real approach to individual classification**. DOI: 10.1007/978-3-031-39965-7_12
-- **Understanding fuzzy measures: measurement of interactions in a bi-dimensional scenario**. DOI: 10.1109/FUZZ52849.2023.10309674  
+-I. Gutiérrez, D. Santos, J. Castro, D. Gómez, R. Espínola y J. A. Guevara. «On measuring features importance in machine learning models in a two-dimensional representation scenario». En: IEEE, 2022, págs. 1-9. doi: 10.1109/FUZZ-IEEE55066.2022.9882566.
+-I. Gutiérrez, D. Santos, J. Castro, J.A. Hernández-Gonzalo, D. Gómez y R.Espínola. «Machine learning and fuzzy measures: A real approach to individual classification». En: Fuzzy logic and technology, and aggregation operators. Springer, 2023, págs. 137-148. doi: 10.1007/978-3-031-39965-7_12.
+-I. Gutiérrez, D. Santos, J. Castro, D. Gómez y R. Espínola. «Understanding fuzzy measures: measurement of interactions in a bi-dimensional scenario». En:2023 IEEE International conference on fuzzy systems. IEEE, 2023, págs. 1-6. doi: 10.1109/FUZZ52849.2023.10309674.
