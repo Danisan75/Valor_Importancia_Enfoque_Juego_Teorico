@@ -12,7 +12,7 @@ El repositorio se organiza en cinco carpetas:
 │   ├── Valor_Shapley.R
 │   └── Visualizacion_Medida.R
 │
-├── 2. Medidas_Difusas/
+├── 2. Medidas difusas/
 │   └── Mu.xlsx
 │
 ├── 3. Resultados predicciones/
