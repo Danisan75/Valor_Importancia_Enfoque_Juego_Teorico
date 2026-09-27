@@ -65,7 +65,7 @@ Esta carpeta contiene un fichero excel XLSX con los resultados de las medidas di
 
 | Archivo                        | Descripción            
 | ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-| `Mu.xlsx`                      |Archivo con los valores de las variables difusas de cada variable en función de la coalición S. Las columnas corresponden a las variables analizadas, las filas a las distintas coaliciones de S y cada celda contiene el valor de la medida difusa de la variable analizada para la coalición correspondiente.
+| `Mu.xlsx`                      |Archivo con los valores de las medidas difusas de cada variable en función de la coalición S. Las columnas corresponden a las variables analizadas, las filas a las distintas coaliciones de S y cada celda contiene el valor de la medida difusa de la variable analizada para la coalición correspondiente.
 
 ## Carpeta 3 — XLSX predicciones distintos modelos y métodos
 
