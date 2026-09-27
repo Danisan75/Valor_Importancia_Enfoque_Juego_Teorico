@@ -69,8 +69,8 @@ Esta carpeta contiene un fichero excel XLSX con los resultados de las medidas di
 
 ## Carpeta 3 — XLSX de las predicciones de cada instancia y coalición para el método 1 y 4 de los distintos modelos
 
-Esta carpeta contiene las predicciones individuales para cada instancia de todas las coaliciones posibles de S, obtenidas mediante los métodos 1 y 4, empleando los modelos de regresión lineal y XGBoost en regresión, y modelos GLM y XGBoost en clasificación. En este contexto, S representa cada una de las posibles coalición de variables explicativas de la base de datos. Cada coalición se construye con cada combinación específica de variables utilizadas para generar las predicciones, desde la ausencia total de información, S=∅, hasta el conocimiento completo de todas las variables explicativas de una instancia.
-Con el fin de facilitar la verificación de las predicciones obtenidas para cada método y poder comparar las diferencias en las predicciones, se adoptaron nomenclaturas específicas. En el método 1, las predicciones asociadas a cada coalición S, denotadas en la memoria como y1′(S), se identifican mediante el formato H(AAA_BBB_CCC...), donde los códigos incluidos entre paréntesis corresponden a las tres primeras letras de cada variable que forman la coalición. La coalición S=∅ se identifica mediante H() y, adicionalmente, mediante la letra K, utilizada en la formulación y el cálculo de las variaciones de predicción. En el método 4, las predicciones asociadas a cada coalición S, denotada en la memoria como y4′(S,μ) y siendo μ la medida difusa asociada a esa coalición , se identifican mediante el formato H_S_AAA_BBB_CCC..., donde los H_S_ corresponde a la nomenclatura de la predicción seguido de las tres primeras letras de cada variable que forma la coalición. La coalición S=∅ se representa mediante H_S_Empty y, adicionalmente, mediante la letra K, utilizada en la formulación y el cálculo de las variaciones de predicción. 
+Esta carpeta contiene las predicciones individuales para cada instancia de todas las coaliciones posibles de S, obtenidas mediante los métodos 1 y 4, empleando los modelos de regresión lineal y XGBoost en regresión, y modelos GLM y XGBoost en clasificación. En este contexto, S representa cada una de las posibles coaliciones de variables explicativas de la base de datos. Cada coalición se construye a partir de una combinación específica de variables utilizadas para generar las predicciones, desde la ausencia total de información, S=∅, hasta el conocimiento completo de todas las variables explicativas de una instancia.
+Con el fin de facilitar la verificación de las predicciones obtenidas para cada método y poder comparar las diferencias en las predicciones, se adoptaron nomenclaturas específicas. En el método 1, las predicciones asociadas a cada coalición S, denotadas en la memoria como y1′(S), se identifican mediante el formato H(AAA_BBB_CCC...), donde los códigos incluidos entre paréntesis corresponden a las tres primeras letras de cada variable que forman la coalición. La coalición S=∅ se identifica mediante H() y, adicionalmente, mediante la letra K, utilizada en la formulación y el cálculo de las variaciones de predicción. En el método 4, las predicciones asociadas a cada coalición S, denotadas en la memoria como y4′(S,μ) y siendo μ la medida difusa asociada a esa coalición, se identifican mediante el formato H_S_AAA_BBB_CCC..., donde los H_S_ corresponde a la nomenclatura de la predicción seguido de las tres primeras letras de las variables que forma la coalición. La coalición S=∅ se representa mediante H_S_Empty y, adicionalmente, mediante la letra K, utilizada en la formulación y el cálculo de las variaciones de predicción. 
 
 
 | Archivo                        | Descripción    
@@ -84,9 +84,9 @@ Con el fin de facilitar la verificación de las predicciones obtenidas para cada
 | `M4-Pred-xgb-yb.xlsx`           | Archivo con las predicciones en cada instancia para cada coalición utilizando el método 4 y XGBoost como modelo de clasificación.                
 | `M4-Pred-xgb-y.xlsx`            | Archivo con las predicciones en cada instancia para cada coalición utilizando el método 4 y XGBoost como modelo de regresión.                    
 
-## Carpeta 4 — XLSX variaciones de predicción y valor de Shapley
+## Carpeta 4 — XLSX variaciones de predicción y valor de Shapley de cada instancia y coalición para el método 1 y 4 de los distintos modelos
 
-Esta carpeta recoge, para cada instancia, las variaciones de la predicción derivadas del conocimiento de los valores de la coalición S respecto a no conocer ningún valor de la variables, así como los valores de Shapley correspondientes. Estos resultados se han generado mediante los métodos 1 y 4 para todas las coaliciones evaluadas, utilizando los mismo modelos que en caso anterior para los problemas de regresión como de clasificación. A Δ1(S) y Δ4(S) se las ha denominado T(S). Si S=∅ la denominación será T() para cualquier otra coalición S se denominará con las tres primeras letras de cada variable. El valor de Shapley se etiqueta con Sha_ más las tres primeras letras de cada variable.
+Esta carpeta contiene, para cada instancia y para cada coalición de variables, las variaciones de predicción obtenidas a partir del conocimiento de los valores de una coalición S respecto a no se conocer el valor de ninguna variable de la base de datos, así como los valores de Shapley calculados a partir de dichas variaciones. Los resultados se han generado para los métodos 1 y 4 en todas las coaliciones posibles, utilizando los modelos de regresión lineal y XGBoost en regresión, y modelos GLM y XGBoost en clasificación. Las variaciones de predicción asociadas a cada coalición S, denotadas en la memoria como Δ1(S) y Δ4(S) para el método 1 y 4 respectivamente, se identifican mediante una nomenclatura análoga a la empleada para las predicciones descritas en la carpeta 3. En el método 1 es utiliza la notación T(AAA_BBB_CCC...), utilizándose en el método 4 el formato T_S_AAA_BBB_CCC..., donde las siglas AAA, BBB, CCC,... corresponden a las tres primeras letras de las características que forman la coalición S. La coalición S=∅ se representa en el método 1 mediante T() y en el método 4 como T_S_Empty. El resto de las coaliciones, incluida la formada por todas las variables consideradas en el análisis, se identifican concatenando las tres primeras letras de las variables que las componen como se ha descrito en este epígrafe. Los valores de Shapley asociados a cada característica se identifican mediante el prefijo Sha_, seguido de las tres primeras letras de la característica analizada.
 
 | Archivo                        | Descripción    
 | ------------------------------ |--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -147,14 +147,14 @@ Las representaciones gráficas pueden generarse de dos maneras:
 - Ejecutando directamente el script de visualización, tras completar la secuencia correspondiente de cada uno de los métodos.
 - Cargando cualquiera de los archivos de resultados del valor de Shapley, almacenados en la "carpeta 4":
 
-M1-Shapley-lm-y.xlsx
-M1-Shapley-glm-yb.xlsx
-M1-Shapley-xgb-y.xlsx
-M1-Shapley-xgb-yb.xlsx
-M4-Shapley-lm-y.xlsx
-M4-Shapley-glm-yb.xlsx
-M4-Shapley-xgb-y.xlsx
-M4-Shapley-xgb-yb.xlsx
+- M1-Shapley-lm-y.xlsx
+- M1-Shapley-glm-yb.xlsx
+- M1-Shapley-xgb-y.xlsx
+- M1-Shapley-xgb-yb.xlsx
+- M4-Shapley-lm-y.xlsx
+- M4-Shapley-glm-yb.xlsx
+- M4-Shapley-xgb-y.xlsx
+- M4-Shapley-xgb-yb.xlsx
 
 tabla_T_base <- read_excel( file.path(ruta_resultados, "Archivo.xlsx"))
 
@@ -162,12 +162,13 @@ tabla_T_base <- tabla_T_base[ , 1:(ncol(tabla_T_base) - 5)]
 
 ## Software
 
-Los scripts de R requieren el entorno de programación estadística R y los paquetes especificados dentro de cada script.
+Los scripts de R requieren el entorno de programación estadística R y los paquetes especificados dentro de cada script. Se ha utilizado la versión 4.4.0.
 
 ## Cita bibliográfica
 
 Si utiliza este repositorio, cite las siguientes publicaciones:
 
+- D. Santos, I. Gutiérrez, J. Castro, D. Gómez, J.A. Guevara y R. Espínola. «Explanation of machine learning classification models with fuzzy measures: An approach to individual classification». En: Intelligent and fuzzy systems: digital acceleration and the new normal, Infus 2022. Vol. 505. Springer international publishing, 2022, págs. 62-69. doi: 10.1007/978-3-031-09176-6_7.
 - **Explanation of machine learning classification models with fuzzy measures: An approach to individual classification**. DOI: 10.1007/978-3-031-09176-6_7
 - **On measuring features importance in machine learning models in a two-dimensional representation scenario**. DOI: 10.1109/FUZZ-IEEE55066.2022.9882566
 - **Machine learning and fuzzy measures: A real approach to individual classification**. DOI: 10.1007/978-3-031-39965-7_12
