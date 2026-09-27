@@ -48,7 +48,7 @@ El repositorio se organiza en cinco carpetas:
 
 ## Carpeta 1 — Código R
 
-Esta carpeta contiene los scripts desarrollados en R para la lectura y adecuación de los datos, cálculo de medidas difusas, el cálculo de predicciones, la estimación de variaciones de predicción y el cálculo de los valores de Shapley. Los métodos se aplican sobre modelos de regresión lineal y XGBoost, así como sobre modelos de clasificación GLM y XGBoost.
+Esta carpeta contiene los scripts desarrollados en R para la lectura, transformación y adecuación de los datos, así como para el cálculo de las medidas difusas, la generación de predicciones, la estimación de variaciones de predicción y el cálculo de los valores de Shapley. Los métodos son aplicados a modelos de regresión lineal y XGBoost, así como a los modelos de clasificación GLM y XGBoost.
 
 | Archivo                        | Descripción  
 | ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
