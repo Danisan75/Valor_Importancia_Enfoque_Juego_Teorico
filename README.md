@@ -99,7 +99,7 @@ Esta carpeta contiene, para cada instancia y para cada coalición de variables, 
 | `M4-Shapley-xgb-yb.xlsx`           | Archivo con las variaciones de predicciones en cada instancia para cada coalición y el valor de Shapley utilizando el método 4 y XGBoost como modelo de clasificación.
 | `M4-Shapley-xgb-y.xlsx`            | Archivo con las variaciones de predicciones en cada instancia para cada coalición y el valor de Shapley utilizando el método 4 y XGBoost como modelo de regresión.
 
-## Carpeta 5 — PDF representaciones gráficas para los métodos 1 y 4 y modelo
+## Carpeta 5 — PDF con las representaciones gráficas para los métodos 1 y 4 y los modelos de regresión y clasificación
 
 Esta carpeta contiene en archivos pdf las gráficas por posición, presencia y ausencia para las distintas combinaciones de coaliciones. La gráfica en color verde representa la importancia por posición en función de los predecesores de la variable analizada. La gráfica azul representa la importancia por presencia en función del número de predecesores. La gráfica verde representa la importancia por ausencia en función del número de predecesores. Todas las representaciones gráficas son en la primera instancia. Cada gráfica contiene una leyenda donde se detallan las variables analizadas.
 
