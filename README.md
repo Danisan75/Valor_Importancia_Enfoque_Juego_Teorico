@@ -136,15 +136,16 @@ La ejecución debe llevarse a cabo en el siguiente orden:
 
 Una vez ejecutado `Lectura_Adecuacion_Datos.R`, la secuencia es la siguiente:
 
-1. `Medida_Difusa.R`
-2. `Metodo_IV.R`
-3. `Valor_Shapley.R`
+1. `Lectura_Adecuacion_Datos.R`
+2. `Medida_Difusa.R`
+3. `Metodo_IV.R`
+4. `Valor_Shapley.R`
 
 ### Visualización de los resultados
 
 Las representaciones gráficas pueden generarse de dos maneras:
 
-Ejecutando directamente el script de visualización, tras completar la secuencia correspondiente de cada uno de los métodos, o bien cargando cualquiera de los archivos de resultados del valor de Shapley, almacenados en la "carpeta 4":
+Ejecutando directamente el script de visualización, tras completar la secuencia correspondiente de cada uno de los métodos, o bien cargando cualquiera de los archivos de resultados del valor de Shapley, almacenados en la "carpeta 4", resultados variación de predicción y valor de Shapley:
 
 - M1-Shapley-lm-y.xlsx
 - M1-Shapley-glm-yb.xlsx
