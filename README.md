@@ -1,3 +1,7 @@
+# Análisis de las variables en modelos de Machine Learning: un enfoque juego teórico
+
+El contenido de este repositorio permite reproducir los métodos y obtener los resultados plasmados en la tesis doctoral ... , elaborada por ... 
+
 ## Estructura del repositorio
 
 El repositorio se organiza en cinco carpetas:
