@@ -1,6 +1,6 @@
 # Análisis de las variables en modelos de Machine Learning: un enfoque juego teórico
 
-El contenido de este repositorio permite reproducir los métodos y obtener los resultados plasmados en la tesis doctoral ... , elaborada por ... 
+El contenido de este repositorio permite reproducir los métodos empleados y obtener los resultados presentados en la tesis doctoral «Análisis de las variables en modelos de Machine Learning: un enfoque juego teórico», elaborada por Daniel Santos.
 
 ## Estructura del repositorio
 
@@ -126,7 +126,7 @@ Esta carpeta contiene en archivos pdf las gráficas por posición, presencia y a
 
 ## Reproducibilidad
 
-Los scripts de R y los archivos de datos incluidos en este repositorio permiten reproducir íntegramente los análisis y resultados presentados en la memoria.
+Los scripts de R y los archivos de datos incluidos en este repositorio permiten reproducir íntegramente los análisis y resultados presentados en la memoria. Los archivos de datos de origen, disponibles en Kaggle, son NHANESI_subset_X.csv para las variables explicativas y NHANESI_subset_Y.csv para la variable objetivo numérica.
 
 ### Método 1
 
